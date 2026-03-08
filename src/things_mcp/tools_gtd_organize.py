@@ -3,6 +3,7 @@
 These tools handle the "Organize" stage of GTD - putting things where they belong.
 """
 
+import asyncio
 from typing import Optional, List, Dict, Any
 
 import things
@@ -75,7 +76,7 @@ def register_gtd_organize_tools(mcp: FastMCP):
             # Combine context with any other tags
             tags = context if context else None
             if tags:
-                ensure_tags_exist(tags)
+                await asyncio.to_thread(ensure_tags_exist, tags)
 
             # Build URL
             url = add_todo(
@@ -162,7 +163,7 @@ def register_gtd_organize_tools(mcp: FastMCP):
                 delegation_note += f" {notes}"
 
             # Ensure waiting-for tag exists
-            ensure_tags_exist(["waiting-for"])
+            await asyncio.to_thread(ensure_tags_exist, ["waiting-for"])
 
             # Update the task
             url = update_todo(
@@ -402,7 +403,7 @@ def register_gtd_organize_tools(mcp: FastMCP):
             # Ensure tags exist
             all_tags = (tags or []) + (add_tags or [])
             if all_tags:
-                ensure_tags_exist(all_tags)
+                await asyncio.to_thread(ensure_tags_exist, all_tags)
 
             # Build URL
             url = update_todo(

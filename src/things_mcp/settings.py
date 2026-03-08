@@ -52,6 +52,12 @@ class Settings(BaseSettings):
         description="Things 3 authentication token (from Things > Settings > General > Enable Things URLs)",
     )
 
+    # OAuth / bearer auth enforcement
+    things_mcp_require_auth: bool = Field(
+        default=False,
+        description="Require OAuth bearer token on all /mcp requests (set true for remote/ngrok access)",
+    )
+
     # Debug settings
     things_mcp_debug: bool = Field(
         default=False,

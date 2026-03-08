@@ -53,11 +53,15 @@ def _open_url_background(url: str) -> bool:
             capture_output=True,
             text=True,
             check=False,
+            timeout=10,
         )
         if result.returncode != 0:
             logger.error(f"osascript error: {result.stderr}")
             return False
         return True
+    except subprocess.TimeoutExpired:
+        logger.warning("osascript timed out opening URL")
+        return False
     except FileNotFoundError:
         logger.warning("osascript not found; falling back to webbrowser")
         return False

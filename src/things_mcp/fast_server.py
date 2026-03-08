@@ -19,6 +19,14 @@ import random
 import signal
 import sys
 
+from .oauth import (
+    protected_resource_metadata,
+    oauth_metadata,
+    client_registration,
+    authorize_get,
+    authorize_post,
+    token as oauth_token,
+)
 from .server_core import (
     create_mcp_server,
     get_binding_host,
@@ -32,7 +40,7 @@ from .client_compat import (
     patch_accept_headers,
     get_streamable_http_middleware,
 )
-from .settings import get_transport, is_debug_enabled
+from .settings import get_transport, is_debug_enabled, get_settings
 from .cache import get_cache_stats
 from .utils import app_state
 from .url_scheme import launch_things
@@ -209,6 +217,45 @@ def _print_shutdown_summary():
     print()
 
 
+class _BearerAuthMiddleware:
+    """ASGI middleware that enforces Bearer token auth on /mcp requests.
+
+    Active only when THINGS_MCP_REQUIRE_AUTH=true.  Unauthenticated requests
+    receive a 401 with a WWW-Authenticate header, which triggers Claude Desktop
+    to start the OAuth discovery flow automatically.
+    """
+
+    def __init__(self, app, token: str):
+        self.app = app
+        self._token = token
+
+    def __getattr__(self, name):
+        return getattr(self.app, name)
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope["path"].startswith("/mcp"):
+            headers = {k.lower(): v for k, v in scope.get("headers", [])}
+            auth = headers.get(b"authorization", b"").decode()
+            if not auth.lower().startswith("bearer ") or auth[7:].strip() != self._token:
+                await self._send_401(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
+
+    @staticmethod
+    async def _send_401(scope, receive, send):
+        body = b'{"error":"unauthorized"}'
+        await send({
+            "type": "http.response.start",
+            "status": 401,
+            "headers": [
+                (b"www-authenticate", b'Bearer realm="Things MCP"'),
+                (b"content-type", b"application/json"),
+                (b"content-length", str(len(body)).encode()),
+            ],
+        })
+        await send({"type": "http.response.body", "body": body})
+
+
 class _TrailingSlashMiddleware:
     """ASGI middleware that silently adds trailing slash to /mcp requests.
 
@@ -243,7 +290,7 @@ def _create_combined_app(mcp_instance, transport_mode: str):
         ASGI application with streamable-http transport endpoint.
     """
     from starlette.applications import Starlette
-    from starlette.routing import Mount
+    from starlette.routing import Mount, Route
 
     routes = []
 
@@ -263,6 +310,29 @@ def _create_combined_app(mcp_instance, transport_mode: str):
         "Streamable-HTTP transport enabled at /mcp (for Claude Desktop/n8n/ChatGPT)"
     )
 
+    # OAuth 2.0 endpoints — always mounted so Claude Desktop can discover them
+    # /.well-known/oauth-protected-resource is checked first by MCP spec 2025-03-26 clients
+    # /.well-known/oauth-authorization-server is the fallback (RFC 8414)
+    routes += [
+        Route("/.well-known/oauth-protected-resource", protected_resource_metadata, methods=["GET"]),
+        Route("/.well-known/oauth-authorization-server", oauth_metadata, methods=["GET"]),
+        Route("/authorize", authorize_get, methods=["GET"]),
+        Route("/authorize", authorize_post, methods=["POST"]),
+        Route("/token", oauth_token, methods=["POST"]),
+        Route("/register", client_registration, methods=["POST"]),
+    ]
+
+    # Root redirect: Claude Desktop sometimes posts to / (origin) instead of /mcp
+    # after OAuth when the issuer has no path component. Redirect to /mcp/ so
+    # either URL works when entered in Claude Desktop's "Add URL" dialog.
+    async def _root_redirect(request):
+        from starlette.responses import RedirectResponse as _Redirect
+        return _Redirect("/mcp/", status_code=307)
+
+    routes.insert(0, Route("/", _root_redirect, methods=["GET", "POST", "PUT", "DELETE", "PATCH"]))
+
+    logger.info("OAuth 2.0 endpoints mounted (/.well-known/oauth-protected-resource, /.well-known/oauth-authorization-server, /authorize, /token)")
+
     # Use FastMCP's lifespan directly as recommended by the error message.
     # FastMCP's http_app() returns a StarletteWithLifespan instance that includes
     # the proper lifespan for initializing the streamable-http transport's task group.
@@ -271,7 +341,22 @@ def _create_combined_app(mcp_instance, transport_mode: str):
     app = Starlette(routes=routes, lifespan=http_app.lifespan)
 
     # Wrap with middleware to silently normalize /mcp to /mcp/ (avoids 307 redirects)
-    return _TrailingSlashMiddleware(app)
+    app = _TrailingSlashMiddleware(app)
+
+    # Optionally enforce bearer auth on /mcp (required for remote/ngrok access)
+    settings = get_settings()
+    if settings.things_mcp_require_auth:
+        token_value = settings.things_auth_token
+        if token_value:
+            app = _BearerAuthMiddleware(app, token_value)
+            logger.info("Bearer auth enforcement enabled on /mcp (THINGS_MCP_REQUIRE_AUTH=true)")
+        else:
+            logger.warning(
+                "THINGS_MCP_REQUIRE_AUTH=true but THINGS_AUTH_TOKEN is not set — "
+                "bearer auth NOT enforced (all /mcp requests will be allowed)"
+            )
+
+    return app
 
 
 def run_things_mcp_server():

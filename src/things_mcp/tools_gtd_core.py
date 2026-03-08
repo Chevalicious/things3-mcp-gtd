@@ -6,6 +6,7 @@ These tools form the "input" side of GTD:
 - Clarify: process-inbox, convert-to-project
 """
 
+import asyncio
 from typing import Optional, List, Union
 
 import things
@@ -426,7 +427,7 @@ def register_gtd_core_tools(mcp: FastMCP):
 
             # Ensure tags exist
             if tags:
-                ensure_tags_exist(tags)
+                await asyncio.to_thread(ensure_tags_exist, tags)
 
             # Create in inbox (no when/list specified = inbox)
             url = add_todo(title=title, notes=notes, tags=tags)
