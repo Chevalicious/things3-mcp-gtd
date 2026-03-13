@@ -1,6 +1,6 @@
 # Privacy Notice
 
-_Last updated: 2026-02-05_
+_Last updated: 2026-03-12_
 
 The Things FastMCP server is designed to run entirely on your macOS device. It never sends your task data to the maintainers or to any third-party service beyond the Model Context Protocol (MCP) client you authorize. This notice explains what information the server accesses, how it is stored, and how you can remove it.
 
@@ -30,6 +30,16 @@ All persistent data is stored locally on the same macOS account that runs the se
 
 No telemetry, analytics, or remote logging is performed by default. Network traffic initiated by the server is limited to the MCP protocol messages exchanged with the client that you launch (for example, Claude Desktop, n8n, or ChatGPT) and to any integrations you explicitly configure.
 
+## GDPR/CCPA Compliance
+
+This software operates entirely locally on your device. **You are the data controller** for your own task data. Since no data is transmitted to the maintainers or third parties (beyond your configured MCP client), standard data subject rights (access, erasure, portability) are exercised by you directly through the deletion procedures outlined above.
+
+**Key points:**
+- No personal data is collected by the maintainers
+- No data is stored on external servers
+- All processing happens on your local machine
+- You have complete control over your data at all times
+
 ## Data retention and deletion
 
 Because all storage is local, you control retention. To remove sensitive data you can:
@@ -41,7 +51,21 @@ Because all storage is local, you control retention. To remove sensitive data yo
 5. Uninstall the repository directory to remove the code and any local virtual environments.
 6. Revoke the Things authentication token inside the Things macOS app if you believe it has been exposed.
 
+**Retention periods:**
+- Log files: Rotated at 10MB, maximum 5 backup files kept
+- Configuration: Persistent until manually deleted
+- Cache data: Temporary, regenerated on server restart
+
 Restart the server after deleting configuration files so that it regenerates clean defaults. If you are unsure which files to delete, search for items created at the time you ran the server and remove them manually.
+
+## Data breach procedures
+
+Since this software operates entirely locally, any data breach would occur at the macOS system level (e.g., unauthorized access to your machine). The maintainers cannot access your data and therefore cannot notify you of breaches. We recommend:
+
+- Using full-disk encryption (FileVault)
+- Keeping macOS and Things 3 updated
+- Securing your MCP client connections
+- Regularly rotating your Things authentication token
 
 ## Questions and contact
 

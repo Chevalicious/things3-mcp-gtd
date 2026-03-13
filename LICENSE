@@ -1,9 +1,10 @@
 MIT License
 
-Copyright (c) 2024 Yaroslav Krempovych
+Copyright (c) 2024-2026 Yaroslav Krempovych, Nicolo Orozco (CaseyRo)
 
 Based on the original "things-mcp" project by Harald Lindstrøm
 Original repository: https://github.com/hald/things-mcp
+Enhanced fork maintained at: https://github.com/nrorozco1998-ship-it/things3-mcp-gtd
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

@@ -1,6 +1,6 @@
 # Terms of Use
 
-_Last updated: 2026-02-05_
+_Last updated: 2026-03-12_
 
 These Terms of Use govern your access to and use of the Things FastMCP project (the "Software"). By running the Software you agree to the responsibilities and limitations described below. If you do not agree, do not install or execute the Software.
 
@@ -18,9 +18,23 @@ These Terms of Use govern your access to and use of the Things FastMCP project (
 - **Data integrity**. Automated edits to Things data may be irreversible. Review generated changes before confirming them inside your MCP client.
 - **Third-party policies**. Your use of Things, macOS, or any AI assistant remains subject to their respective license agreements and policies.
 
+## Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE AUTHORS, COPYRIGHT HOLDERS, OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+THE TOTAL LIABILITY OF THE AUTHORS AND CONTRIBUTORS FOR ALL CLAIMS ARISING FROM OR RELATING TO THESE TERMS OR THE SOFTWARE SHALL NOT EXCEED $100 USD.
+
+## Indemnification
+
+You agree to indemnify, defend, and hold harmless the authors, copyright holders, and contributors from any claims, damages, losses, or expenses (including reasonable attorneys' fees) arising from your use of the Software, your violation of these Terms, or your violation of any rights of a third party.
+
+## Governing Law and Jurisdiction
+
+These Terms shall be governed by and construed in accordance with the laws of the State of California, United States, without regard to its conflict of law provisions. Any legal action or proceeding arising under these Terms shall be brought exclusively in the federal or state courts located in California.
+
 ## Compliance with OpenAI policies
 
-If you connect the Software to an OpenAI-powered assistant (for example, via OpenAI’s MCP tooling), you must follow OpenAI’s [Usage Policies](https://openai.com/policies/usage-policies) and [Terms of Use](https://openai.com/policies/terms-of-use). Do not use the Software to build experiences that violate those documents, including prohibited content categories or privacy requirements.
+If you connect the Software to an OpenAI-powered assistant (for example, via OpenAI's MCP tooling), you must follow OpenAI's [Usage Policies](https://openai.com/policies/usage-policies) and [Terms of Use](https://openai.com/policies/terms-of-use). Do not use the Software to build experiences that violate those documents, including prohibited content categories or privacy requirements.
 
 ## Updates to these terms
 
