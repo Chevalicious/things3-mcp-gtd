@@ -8,6 +8,7 @@ license = { text = "MIT License" }
 authors = [
     { name = "Yaroslav Krempovych", email = "51231325+excelsior@users.noreply.github.com" },
     { name = "Harald Lindstrøm", email = "hald@users.noreply.github.com" },
+    { name = "Chevalicious", email = "Chevalicious@users.noreply.github.com" },
 ]
 keywords = [
     "mcp",
@@ -41,9 +42,9 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/CaseyRo/mcp-things"
-"Bug Tracker" = "https://github.com/CaseyRo/mcp-things/issues"
-"Documentation" = "https://github.com/CaseyRo/mcp-things#readme"
+"Homepage" = "https://github.com/Chevalicious/things3-mcp-gtd"
+"Bug Tracker" = "https://github.com/Chevalicious/things3-mcp-gtd/issues"
+"Documentation" = "https://github.com/Chevalicious/things3-mcp-gtd#readme"
 
 [build-system]
 requires = ["hatchling"]
