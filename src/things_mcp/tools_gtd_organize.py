@@ -67,6 +67,11 @@ def register_gtd_organize_tools(mcp: FastMCP):
         if ctx:
             await ctx.info(f"Scheduling task for {when}...")
 
+        if not title:
+            return "Please provide a title for the task."
+        if not when:
+            return "Please provide a when value (e.g., 'today', 'tomorrow', 'anytime', or YYYY-MM-DD)."
+
         try:
             # Ensure Things app is running
             if not app_state.update_app_state():
@@ -140,6 +145,11 @@ def register_gtd_organize_tools(mcp: FastMCP):
         """
         if ctx:
             await ctx.info(f"Delegating task to {delegated_to}...")
+
+        if not task_id:
+            return "Please provide a task_id (the UUID of the task to delegate)."
+        if not delegated_to:
+            return "Please provide whom you're delegating to (delegated_to)."
 
         try:
             # Get the original task
@@ -217,6 +227,11 @@ def register_gtd_organize_tools(mcp: FastMCP):
         """
         if ctx:
             await ctx.info(f"Deferring task to {defer_to}...")
+
+        if not task_id:
+            return "Please provide a task_id (the UUID of the task to defer)."
+        if not defer_to:
+            return "Please provide when to defer to (defer_to: 'someday', 'tomorrow', or YYYY-MM-DD)."
 
         try:
             # Ensure Things app is running
@@ -393,6 +408,9 @@ def register_gtd_organize_tools(mcp: FastMCP):
         """
         if ctx:
             await ctx.info("Updating task...")
+
+        if not task_id:
+            return "Please provide a task_id (the UUID of the task to update)."
 
         try:
             # Ensure Things app is running

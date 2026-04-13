@@ -333,7 +333,7 @@ def register_gtd_core_tools(mcp: FastMCP):
             await ctx.info("Completing task...")
 
         if not task_id and not task_title:
-            _error_result("Provide either task_id or task_title to identify the task.")
+            return "Please provide a task_id or task_title to identify the task."
 
         try:
             # If title provided, search for matching task
@@ -536,6 +536,9 @@ def register_gtd_core_tools(mcp: FastMCP):
         """
         if ctx:
             await ctx.info("Converting task to project...")
+
+        if not task_id:
+            return "Please provide a task_id (the UUID of the task to convert to a project)."
 
         try:
             # Get the original task

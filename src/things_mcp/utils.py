@@ -34,35 +34,21 @@ def is_things_running() -> bool:
             logger.warning("Things availability check only works on macOS")
             return True
 
-        result = subprocess.run(
-            [
-                "osascript",
-                "-e",
-                'tell application "System Events" to (name of processes) contains "Things3"',
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        is_running = result.stdout.strip().lower() == "true"
-
-        # If Things is running, also check if it's responsive
-        if is_running:
-            # Simple ping to see if Things responds
-            # Use run_applescript for background execution support
-            # Note: 'without activating' will be automatically added by run_applescript()
-            run_applescript = _get_run_applescript()
-            ping_result = run_applescript('tell application "Things3" to return name')
-            is_responsive = ping_result is not False and ping_result != ""
-
-            if not is_responsive:
-                logger.warning("Things is running but not responsive")
-                return False
-
-        return is_running
-    except subprocess.TimeoutExpired:
-        logger.warning("Things app check timed out")
-        return False
+        # Check if Things3 is running via direct AppleScript ping
+        # (System Events approach hangs when called from Python subprocess in some envs)
+        try:
+            result = subprocess.run(
+                ["osascript", "-e", 'tell application "Things3" to return name'],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=5,
+            )
+            is_running = result.returncode == 0 and result.stdout.strip() == "Things3"
+            return is_running
+        except subprocess.TimeoutExpired:
+            logger.warning("Things app ping timed out")
+            return False
     except Exception as e:
         logger.error(f"Error checking if Things is running: {str(e)}")
         return False

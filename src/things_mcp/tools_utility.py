@@ -163,6 +163,9 @@ def register_utility_tools(mcp: FastMCP):
         if ctx:
             await ctx.info(f"Opening '{id}' in Things...")
 
+        if not id:
+            return "Please provide an id (item UUID or list name: inbox, today, upcoming, anytime, someday, etc.)."
+
         try:
             # Ensure Things app is running
             if not app_state.update_app_state():
