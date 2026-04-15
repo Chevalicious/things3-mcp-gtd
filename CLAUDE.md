@@ -144,6 +144,8 @@ THINGS_MCP_TRANSPORT=streamable-http  # Default: streamable-http transport (only
 
 **Client Setup:** All clients (ChatGPT, Claude Desktop, n8n) should use `http://localhost:8009/mcp` as the MCP server URL.
 
+**Integration guides:** See `docs/integration-n8n.md`, `docs/integration-chatgpt.md`, `docs/integration-clawdbot.md`, and `docs/integration-approval.md` for product-specific setup.
+
 ## Client Compatibility Middleware
 
 `ClientCompatibilityMiddleware` in `server_core.py` handles all client-specific quirks using FastMCP 3.x middleware hooks:

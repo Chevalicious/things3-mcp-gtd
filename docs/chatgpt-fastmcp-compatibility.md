@@ -2,6 +2,8 @@
 
 This document describes the compatibility issues between ChatGPT's MCP integration and FastMCP 3.0 servers, along with the solutions implemented in this project.
 
+**Setup guide:** [integration-chatgpt.md](integration-chatgpt.md)
+
 ## Background
 
 ChatGPT adopted MCP in March 2025. However, ChatGPT uses "strict mode" for function calling, which has stricter JSON Schema requirements than the base MCP specification.

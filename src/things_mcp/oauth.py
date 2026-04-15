@@ -48,25 +48,29 @@ async def protected_resource_metadata(request: Request) -> JSONResponse:
     authorization server handles this resource.
     """
     base = _base_url(request)
-    return JSONResponse({
-        "resource": base,
-        "authorization_servers": [base],
-    })
+    return JSONResponse(
+        {
+            "resource": base,
+            "authorization_servers": [base],
+        }
+    )
 
 
 async def oauth_metadata(request: Request) -> JSONResponse:
     """RFC 8414 Authorization Server Metadata — GET /.well-known/oauth-authorization-server"""
     base = _base_url(request)
-    return JSONResponse({
-        "issuer": base,
-        "authorization_endpoint": f"{base}/authorize",
-        "token_endpoint": f"{base}/token",
-        "registration_endpoint": f"{base}/register",
-        "response_types_supported": ["code"],
-        "grant_types_supported": ["authorization_code"],
-        "code_challenge_methods_supported": ["S256"],
-        "token_endpoint_auth_methods_supported": ["none"],
-    })
+    return JSONResponse(
+        {
+            "issuer": base,
+            "authorization_endpoint": f"{base}/authorize",
+            "token_endpoint": f"{base}/token",
+            "registration_endpoint": f"{base}/register",
+            "response_types_supported": ["code"],
+            "grant_types_supported": ["authorization_code"],
+            "code_challenge_methods_supported": ["S256"],
+            "token_endpoint_auth_methods_supported": ["none"],
+        }
+    )
 
 
 async def client_registration(request: Request) -> JSONResponse:
@@ -82,14 +86,17 @@ async def client_registration(request: Request) -> JSONResponse:
 
     client_id = secrets.token_urlsafe(16)
     logger.info("OAuth: dynamic client registered (client_id=%s)", client_id)
-    return JSONResponse({
-        "client_id": client_id,
-        "client_id_issued_at": int(time.time()),
-        "redirect_uris": body.get("redirect_uris", []),
-        "token_endpoint_auth_method": "none",
-        "grant_types": ["authorization_code"],
-        "response_types": ["code"],
-    }, status_code=201)
+    return JSONResponse(
+        {
+            "client_id": client_id,
+            "client_id_issued_at": int(time.time()),
+            "redirect_uris": body.get("redirect_uris", []),
+            "token_endpoint_auth_method": "none",
+            "grant_types": ["authorization_code"],
+            "response_types": ["code"],
+        },
+        status_code=201,
+    )
 
 
 async def authorize_get(request: Request) -> HTMLResponse:
@@ -176,7 +183,10 @@ async def authorize_post(request: Request) -> RedirectResponse:
     code_challenge_method = str(form.get("code_challenge_method", "S256"))
 
     if not redirect_uri:
-        return JSONResponse({"error": "invalid_request", "error_description": "redirect_uri required"}, status_code=400)
+        return JSONResponse(
+            {"error": "invalid_request", "error_description": "redirect_uri required"},
+            status_code=400,
+        )
 
     code = secrets.token_urlsafe(32)
     _auth_codes[code] = {
@@ -203,44 +213,88 @@ async def token(request: Request) -> JSONResponse:
         grant_type = body.get("grant_type", "")
         code = body.get("code", "")
         code_verifier = body.get("code_verifier", "")
-        redirect_uri = body.get("redirect_uri", "")
+        redirect_uri = str(body.get("redirect_uri") or "")
     else:
         form = await request.form()
         grant_type = str(form.get("grant_type", ""))
         code = str(form.get("code", ""))
         code_verifier = str(form.get("code_verifier", ""))
-        redirect_uri = str(form.get("redirect_uri", ""))
+        redirect_uri = str(form.get("redirect_uri") or "")
 
     if grant_type != "authorization_code":
         return JSONResponse({"error": "unsupported_grant_type"}, status_code=400)
 
     code_data = _auth_codes.pop(code, None)
     if not code_data:
-        return JSONResponse({"error": "invalid_grant", "error_description": "Unknown or already-used code"}, status_code=400)
+        return JSONResponse(
+            {
+                "error": "invalid_grant",
+                "error_description": "Unknown or already-used code",
+            },
+            status_code=400,
+        )
 
     if time.time() > code_data["expires"]:
-        return JSONResponse({"error": "invalid_grant", "error_description": "Code expired"}, status_code=400)
+        return JSONResponse(
+            {"error": "invalid_grant", "error_description": "Code expired"},
+            status_code=400,
+        )
+
+    stored_redirect = str(code_data.get("redirect_uri") or "")
+    if not redirect_uri:
+        return JSONResponse(
+            {
+                "error": "invalid_request",
+                "error_description": "redirect_uri required",
+            },
+            status_code=400,
+        )
+    if redirect_uri != stored_redirect:
+        return JSONResponse(
+            {
+                "error": "invalid_grant",
+                "error_description": "redirect_uri mismatch",
+            },
+            status_code=400,
+        )
 
     # Verify PKCE (S256)
     stored_challenge = code_data.get("code_challenge", "")
     if stored_challenge:
         if not code_verifier:
-            return JSONResponse({"error": "invalid_grant", "error_description": "code_verifier required"}, status_code=400)
+            return JSONResponse(
+                {
+                    "error": "invalid_grant",
+                    "error_description": "code_verifier required",
+                },
+                status_code=400,
+            )
         digest = hashlib.sha256(code_verifier.encode()).digest()
         computed = base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
         if computed != stored_challenge:
-            return JSONResponse({"error": "invalid_grant", "error_description": "PKCE verification failed"}, status_code=400)
+            return JSONResponse(
+                {
+                    "error": "invalid_grant",
+                    "error_description": "PKCE verification failed",
+                },
+                status_code=400,
+            )
 
     access_token = get_auth_token()
     if not access_token:
         return JSONResponse(
-            {"error": "server_error", "error_description": "THINGS_AUTH_TOKEN not configured"},
+            {
+                "error": "server_error",
+                "error_description": "THINGS_AUTH_TOKEN not configured",
+            },
             status_code=500,
         )
 
     logger.info("OAuth: access token issued successfully")
-    return JSONResponse({
-        "access_token": access_token,
-        "token_type": "bearer",
-        "expires_in": 7_776_000,  # 90 days
-    })
+    return JSONResponse(
+        {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "expires_in": 7_776_000,  # 90 days
+        }
+    )

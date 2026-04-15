@@ -83,9 +83,20 @@ uv run server
 uv run dev
 ```
 
-### Claude Desktop Integration
+### Client integrations
 
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+Step-by-step guides for connecting other products to this server:
+
+- [n8n](docs/integration-n8n.md) — MCP Client Tool node
+- [ChatGPT](docs/integration-chatgpt.md) — HTTPS apps and tunnels
+- [OpenClaw (Clawdbot)](docs/integration-clawdbot.md) — gateway MCP registry
+- [Publishing / approval notes](docs/integration-approval.md) — registries and checklists
+
+Compatibility details: [n8n](docs/n8n-fastmcp-compatibility.md), [ChatGPT](docs/chatgpt-fastmcp-compatibility.md).
+
+### Desktop MCP clients (stdio)
+
+**Claude Desktop** — add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
@@ -97,6 +108,8 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
   }
 }
 ```
+
+Use the project directory as the working directory if `uv` should resolve this repo. For **OpenClaw** and remote HTTP MCP URLs, see [docs/integration-clawdbot.md](docs/integration-clawdbot.md).
 
 ## GTD Tools
 
@@ -158,7 +171,7 @@ People:   @person-name (for agenda items)
 | File/Directory | Purpose |
 |----------------|---------|
 | `README.md` | This file — project overview and quick start |
-| `docs/` | Documentation (DEVELOPERS.md, CLAUDE.md, MIGRATION.md, TESTING.md, compatibility guides) |
+| `docs/` | Documentation (DEVELOPERS.md, CLAUDE.md, MIGRATION.md, TESTING.md, compatibility + integration guides) |
 | `openspec/` | Spec-driven development framework and change proposals |
 | `src/things_mcp/` | Main source code |
 | `tests/` | Test suite (unit + integration) |
