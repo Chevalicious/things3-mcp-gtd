@@ -2,6 +2,8 @@
 
 This document describes the compatibility issues between n8n's MCP Client Tool and FastMCP 3.0 servers, along with the workarounds implemented in this project.
 
+**Setup guide:** [integration-n8n.md](integration-n8n.md)
+
 ## Background
 
 n8n (v1.70+) includes an MCP Client Tool that can connect to Model Context Protocol servers. However, there are several compatibility issues when using it with FastMCP 3.0 servers.
