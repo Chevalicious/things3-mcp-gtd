@@ -128,6 +128,19 @@ uv run dev
 mcp dev src/things_mcp/things_fast_server.py
 ```
 
+## Client integration guides
+
+End-user style setup for common MCP consumers:
+
+| Guide | Use case |
+|-------|----------|
+| [integration-n8n.md](integration-n8n.md) | n8n MCP Client Tool node |
+| [integration-chatgpt.md](integration-chatgpt.md) | ChatGPT apps, HTTPS tunnels |
+| [integration-clawdbot.md](integration-clawdbot.md) | OpenClaw (Clawdbot) `mcp.servers` registry |
+| [integration-approval.md](integration-approval.md) | Publishing and vendor processes |
+
+Technical quirks (schema, middleware): [n8n-fastmcp-compatibility.md](n8n-fastmcp-compatibility.md), [chatgpt-fastmcp-compatibility.md](chatgpt-fastmcp-compatibility.md).
+
 ## Architecture
 
 ### Data Flow

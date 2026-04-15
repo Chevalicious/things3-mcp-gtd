@@ -70,11 +70,18 @@ def run_applescript(script: str) -> Union[str, bool]:
         # Check if script has newlines
         if "\n" in wrapped_script:
             result = subprocess.run(
-                ["osascript"], input=wrapped_script, capture_output=True, text=True, timeout=10
+                ["osascript"],
+                input=wrapped_script,
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
         else:
             result = subprocess.run(
-                ["osascript", "-e", wrapped_script], capture_output=True, text=True, timeout=10
+                ["osascript", "-e", wrapped_script],
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
 
         if result.returncode != 0:

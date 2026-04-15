@@ -11,6 +11,11 @@ This file tracks the agent's thoughts, ideas, and work flow for the `mcp_things`
 
 ## Log
 
+### 2026-04-15
+
+- Implemented OpenSpec change `add-client-integration-docs`: added `docs/integration-*.md` guides for n8n, ChatGPT, OpenClaw (Clawdbot), and publishing notes; linked from README, `CLAUDE.md`, and `docs/DEVELOPERS.md`; cross-linked compatibility docs. OpenClaw naming follows upstream docs (OpenClaw / `docs.clawd.bot` + `docs.openclaw.ai`).
+- Ran `ruff format` on the tree (including `applescript_bridge.py`, `fast_server.py`, `oauth.py`) so CI format checks pass; OAuth token endpoint now requires `redirect_uri` and matches it to the stored authorization redirect.
+
 ### 2025-10-16 (continued)
 
 - Implemented OpenSpec change `add-mcp-crud-tests` - Comprehensive test suite for MCP operations
