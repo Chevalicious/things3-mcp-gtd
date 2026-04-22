@@ -123,3 +123,21 @@ This file tracks the agent's thoughts, ideas, and work flow for the `mcp_things`
 
 - Added standalone privacy and terms documents so operators understand local data handling and policy expectations.
 - Updated README to link to the new policies and prompt users to review them before setup, keeping onboarding aligned with compliance guidance.
+
+## 2026-04-21 — OpenClaw MCP Integration Notes
+
+### Key Documentation
+- OpenClaw integration: `docs/integration-clawdbot.md`
+- Streamable HTTP session management (critical): see bridge.js commit `5ff7ab7` (Apr 19 2026)
+
+### IMPORTANT: MCP Session Lifecycle
+The bridge requires proper streamable-http session management:
+1. `initialize()` → capture `Mcp-Session-Id` from response header
+2. All subsequent calls must include `Mcp-Session-Id` header
+
+OpenClaw's built-in MCP tools may NOT implement this. Use mcporter as fallback:
+```bash
+mcporter call "things.complete-task" --args '{"task_id": "UUID"}'
+```
+
+See `docs/integration-clawdbot.md` for full details.
