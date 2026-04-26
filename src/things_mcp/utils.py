@@ -14,6 +14,22 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
+def _normalize_id(val: Optional[str]) -> Optional[str]:
+    """Normalize null-like values to None.
+    
+    Handles:
+    - Python None (null in JSON, stripped by middleware)
+    - String "null" (malformed from some MCP clients)
+    - String "None" (Python repr edge case)
+    - Empty string
+    """
+    if val is None:
+        return None
+    if isinstance(val, str) and val.lower() in ("null", "none", ""):
+        return None
+    return val
+
+
 # Import run_applescript for background execution support
 # Import at function level to avoid circular dependencies if needed
 def _get_run_applescript():

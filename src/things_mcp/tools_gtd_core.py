@@ -14,7 +14,7 @@ from fastmcp import FastMCP, Context
 from fastmcp.exceptions import ToolError
 
 from .formatters import format_todo
-from .utils import app_state
+from .utils import app_state, _normalize_id
 from .url_scheme import (
     add_todo,
     update_todo,
@@ -332,6 +332,9 @@ def register_gtd_core_tools(mcp: FastMCP):
         if ctx:
             await ctx.info("Completing task...")
 
+        # Normalize null-like values
+        task_id = _normalize_id(task_id)
+
         if not task_id and not task_title:
             return "Please provide a task_id or task_title to identify the task."
 
@@ -536,6 +539,9 @@ def register_gtd_core_tools(mcp: FastMCP):
         """
         if ctx:
             await ctx.info("Converting task to project...")
+
+        # Normalize null-like values
+        task_id = _normalize_id(task_id)
 
         if not task_id:
             return "Please provide a task_id (the UUID of the task to convert to a project)."

@@ -10,7 +10,7 @@ import things
 from fastmcp import FastMCP, Context
 from fastmcp.exceptions import ToolError
 
-from .utils import app_state
+from .utils import app_state, _normalize_id
 from .url_scheme import (
     add_todo,
     update_todo,
@@ -146,6 +146,9 @@ def register_gtd_organize_tools(mcp: FastMCP):
         if ctx:
             await ctx.info(f"Delegating task to {delegated_to}...")
 
+        # Normalize null-like values
+        task_id = _normalize_id(task_id)
+
         if not task_id:
             return "Please provide a task_id (the UUID of the task to delegate)."
         if not delegated_to:
@@ -227,6 +230,9 @@ def register_gtd_organize_tools(mcp: FastMCP):
         """
         if ctx:
             await ctx.info(f"Deferring task to {defer_to}...")
+
+        # Normalize null-like values
+        task_id = _normalize_id(task_id)
 
         if not task_id:
             return "Please provide a task_id (the UUID of the task to defer)."
@@ -408,6 +414,9 @@ def register_gtd_organize_tools(mcp: FastMCP):
         """
         if ctx:
             await ctx.info("Updating task...")
+
+        # Normalize null-like values
+        task_id = _normalize_id(task_id)
 
         if not task_id:
             return "Please provide a task_id (the UUID of the task to update)."

@@ -70,9 +70,14 @@ def _open_url_background(url: str) -> bool:
         return False
 
 
-def execute_url(url: str) -> bool:
+def execute_url(url: str, timeout: float = 5.0, retries: int = 2) -> bool:
     """Execute a Things URL by opening it in the default browser.
     Returns True if successful, False otherwise.
+    
+    Args:
+        url: The Things URL to execute
+        timeout: Timeout in seconds for each attempt (default 5.0)
+        retries: Number of retries on failure (default 2)
     """
     # Ensure any + signs in the URL are replaced with %20
     url = url.replace("+", "%20")
@@ -88,36 +93,52 @@ def execute_url(url: str) -> bool:
         logger.warning("Circuit breaker is open, blocking operation")
         return False
 
-    try:
-        # Check if Things is running, attempt to launch if not
-        if not is_things_running():
-            logger.info("Things is not running, attempting to launch")
-            if not launch_things():
-                logger.error("Failed to launch Things")
+    for attempt in range(retries + 1):
+        try:
+            # Check if Things is running, attempt to launch if not
+            if not is_things_running():
+                logger.info("Things is not running, attempting to launch")
+                if not launch_things():
+                    logger.error("Failed to launch Things")
+                    circuit_breaker.record_failure()
+                    return False
+
+            # Execute the URL - prefer osascript in the background on macOS
+            result = _open_url_background(url)
+            if not result:
+                result = webbrowser.open(url)
+
+            if not result:
                 circuit_breaker.record_failure()
+                logger.error(f"Failed to open URL: {url}")
+                if attempt < retries:
+                    # Exponential backoff: 0.5s, 1s, 2s, ...
+                    sleep_time = 0.5 * (2 ** attempt)
+                    logger.info(f"Retrying in {sleep_time}s (attempt {attempt + 1}/{retries})")
+                    time.sleep(sleep_time)
+                    continue
                 return False
 
-        # Execute the URL - prefer osascript in the background on macOS
-        result = _open_url_background(url)
-        if not result:
-            result = webbrowser.open(url)
+            # Add a small delay to allow Things time to process the command
+            # Add jitter to prevent thundering herd problem
+            delay = 0.5 + random.uniform(0, 0.2)  # 0.5-0.7 seconds
+            time.sleep(delay)
 
-        if not result:
+            circuit_breaker.record_success()
+            return True
+        except Exception as e:
+            logger.error(f"Failed to execute URL: {url}, Error: {str(e)}")
             circuit_breaker.record_failure()
-            logger.error(f"Failed to open URL: {url}")
-            return False
-
-        # Add a small delay to allow Things time to process the command
-        # Add jitter to prevent thundering herd problem
-        delay = 0.5 + random.uniform(0, 0.2)  # 0.5-0.7 seconds
-        time.sleep(delay)
-
-        circuit_breaker.record_success()
-        return True
-    except Exception as e:
-        logger.error(f"Failed to execute URL: {url}, Error: {str(e)}")
-        circuit_breaker.record_failure()
-        return False
+            if attempt < retries:
+                # Exponential backoff: 0.5s, 1s, 2s, ...
+                sleep_time = 0.5 * (2 ** attempt)
+                logger.info(f"Retrying in {sleep_time}s (attempt {attempt + 1}/{retries})")
+                time.sleep(sleep_time)
+            else:
+                logger.error(f"execute_url failed after {retries} retries: {url}")
+                return False
+    
+    return False
 
 
 def execute_xcallback_url(action: str, params: Dict[str, Any]) -> bool:
