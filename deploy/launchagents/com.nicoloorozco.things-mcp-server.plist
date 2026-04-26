@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.nicoloorozco.things-mcp-server</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/nicoloorozco/.local/bin/uv</string>
+    <string>run</string>
+    <string>server</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/nicoloorozco/Projects/mcp-things</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/Users/nicoloorozco/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>HOME</key>
+    <string>/Users/nicoloorozco</string>
+    <key>USER</key>
+    <string>nicoloorozco</string>
+    <key>THINGSDB</key>
+    <string>/Users/nicoloorozco/Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac/ThingsData-ZHBUE/Things Database.thingsdatabase/main.sqlite</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/Users/nicoloorozco/.things-mcp-server.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/nicoloorozco/.things-mcp-server.err</string>
+</dict>
+</plist>

@@ -91,6 +91,7 @@ Step-by-step guides for connecting other products to this server:
 - [ChatGPT](docs/integration-chatgpt.md) — HTTPS apps and tunnels
 - [OpenClaw (Clawdbot)](docs/integration-clawdbot.md) — gateway MCP registry
 - [Publishing / approval notes](docs/integration-approval.md) — registries and checklists
+- [Agent Access](docs/agent-access.md) — LaunchAgent setup, FDA grant, ngrok tunnel, multi-agent wiring
 
 Compatibility details: [n8n](docs/n8n-fastmcp-compatibility.md), [ChatGPT](docs/chatgpt-fastmcp-compatibility.md).
 
@@ -218,6 +219,29 @@ uv run python -m pytest tests -m real
 
 # Lint and format
 uv run ruff check . && uv run ruff format .
+```
+
+## Agent Usage
+
+The server runs as a persistent macOS LaunchAgent and is reachable by multiple agents simultaneously. Full setup: [docs/agent-access.md](docs/agent-access.md).
+
+**Quick reference:**
+
+| Client | Endpoint | Notes |
+|--------|----------|-------|
+| Claude Desktop | `https://<domain>.ngrok-free.dev/mcp` via `mcp-remote` | add `ngrok-skip-browser-warning: true` header |
+| Claude Mobile | `https://<domain>.ngrok-free.dev/mcp` | full `/mcp` path required |
+| OpenClaw (local) | `http://127.0.0.1:8009/mcp` | direct HTTP, no tunnel |
+| Hermes / Cursor | `https://<domain>.ngrok-free.dev/mcp` | remote HTTPS |
+
+**One-time macOS requirement:** grant Full Disk Access to `~/.local/bin/uv` in System Settings → Privacy & Security → Full Disk Access. Without this the LaunchAgent process cannot open the Things 3 database and all read tools fail.
+
+```bash
+# Health check
+bash scripts/health-check.sh
+
+# Restart server
+launchctl kickstart -k gui/$(id -u)/com.nicoloorozco.things-mcp-server
 ```
 
 ## Credits
