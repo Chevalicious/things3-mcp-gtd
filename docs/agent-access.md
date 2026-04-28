@@ -7,12 +7,16 @@ How to connect AI agents and remote clients to the Things MCP server running as 
 ```
 Claude Desktop  ──mcp-remote──┐
 Claude Mobile   ──HTTPS───────┤
-OpenClaw agents ──HTTP────────┼──► ngrok tunnel ──► localhost:8009 ──► FastMCP server ──► Things 3
-Hermes agents   ──HTTPS───────┤                       (LaunchAgent)       (things-py)
+Claude Code     ──HTTPS───────┤
+OpenClaw agents ──HTTPS───────┼──► ngrok tunnel ──► localhost:8009 ──► FastMCP server ──► Things 3
+Hermes agents   ──HTTPS───────┤    (LaunchAgent)     (LaunchAgent)       (things-py)
 Cursor          ──HTTPS───────┘
-
-OpenClaw (local machine) ──► http://127.0.0.1:8009/mcp  (direct, no tunnel)
 ```
+
+> **All agents use the ngrok URL** — even those running on the same Mac. Do not configure agents to
+> connect directly to `127.0.0.1:8009`. A direct connection spawns or conflicts with the
+> LaunchAgent's server process, causing port 8009 address-already-in-use crashes, rapid restarts,
+> and repeated macOS permission prompts for `uv`.
 
 ## One-Time macOS Setup
 
@@ -79,7 +83,19 @@ tunnels:
     domain: <your-static-domain>.ngrok-free.dev   # free static domain from ngrok dashboard
 ```
 
-Install the ngrok LaunchAgent (see `deploy/launchagents/` if one is added for your setup), or start manually:
+Install the ngrok LaunchAgent for persistence (auto-restarts if tunnel drops):
+
+```bash
+# Create ~/Library/LaunchAgents/com.<youruser>.ngrok.plist with:
+# Label: com.<youruser>.ngrok
+# ProgramArguments: [/usr/local/bin/ngrok, start, --all]
+# EnvironmentVariables: HOME + PATH
+# RunAtLoad: true, KeepAlive: true, ThrottleInterval: 30
+
+launchctl load ~/Library/LaunchAgents/com.<youruser>.ngrok.plist
+```
+
+Or start manually:
 
 ```bash
 ngrok start --all --config ~/Library/Application\ Support/ngrok/ngrok.yml
@@ -120,15 +136,27 @@ URL: https://<your-domain>.ngrok-free.dev/mcp
 
 Note: the full `/mcp` path is required. The base domain alone returns 404.
 
-### OpenClaw (local machine)
+### Claude Code (claude.ai/code)
 
-Use the local HTTP endpoint directly — no tunnel overhead:
+Add via the claude.ai web interface → Settings → Integrations → MCP Servers:
+
+```
+URL: https://<your-domain>.ngrok-free.dev/mcp
+Header: ngrok-skip-browser-warning: true
+```
+
+### OpenClaw agents
+
+Use the ngrok URL (same as all other agents):
 
 ```json
 {
   "things": {
     "transport": "streamable-http",
-    "url": "http://127.0.0.1:8009/mcp"
+    "url": "https://<your-domain>.ngrok-free.dev/mcp",
+    "headers": {
+      "ngrok-skip-browser-warning": "true"
+    }
   }
 }
 ```
@@ -172,11 +200,13 @@ THINGS_MCP_NGROK_DOMAIN=your-domain.ngrok-free.dev bash scripts/health-check.sh
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `unable to open database file` | `uv` missing Full Disk Access | Re-add `~/.local/bin/uv` to FDA in System Settings |
-| Tools listed but all fail | Same as above or Things 3 not open | Grant FDA; open Things 3 |
+| `unable to open database file` | `uv` missing Full Disk Access | Re-add `~/.local/bin/uv` to FDA in System Settings → Privacy & Security → Full Disk Access |
+| Server hangs at startup, no port 8009 binding | Automation permission pending | System Settings → Privacy & Security → Automation → enable Things 3 for `uv`. This must be granted once; the server blocks on the AppleScript startup check until approved. |
+| Tools listed but all fail | Same as above or Things 3 not open | Grant FDA + Automation; open Things 3 |
 | 404 on ngrok URL | Missing `/mcp` path | Use full URL: `https://domain.ngrok-free.dev/mcp` |
 | Tunnel unreachable | ngrok not running | `launchctl kickstart -k gui/$(id -u)/com.nicoloorozco.ngrok` |
 | Server not responding on 8009 | LaunchAgent stopped | `launchctl kickstart -k gui/$(id -u)/com.nicoloorozco.things-mcp-server` |
+| Repeated "uv would like to access data" prompts | Port 8009 conflict causing crash loop | Kill orphan: `lsof -ti:8009 \| xargs kill -9`; ensure no agent connects to 127.0.0.1:8009 directly; `ThrottleInterval` in plist prevents rapid restarts |
 
 ## Log Locations
 

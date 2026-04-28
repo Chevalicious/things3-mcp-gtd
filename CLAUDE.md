@@ -142,7 +142,7 @@ The server uses streamable-http transport (SSE transport removed as deprecated):
 THINGS_MCP_TRANSPORT=streamable-http  # Default: streamable-http transport (only option)
 ```
 
-**Client Setup:** All clients (ChatGPT, Claude Desktop, n8n) should use `http://localhost:8009/mcp` as the MCP server URL.
+**Client Setup:** All agents (Claude Desktop, Claude Code, Claude Mobile, OpenClaw, n8n, ChatGPT) connect via the ngrok tunnel: `https://<your-domain>.ngrok-free.dev/mcp`. Do **not** point agents at `http://127.0.0.1:8009` directly — this conflicts with the LaunchAgent's running instance and causes a port-conflict crash loop with repeated macOS permission prompts.
 
 **Integration guides:** See `docs/integration-n8n.md`, `docs/integration-chatgpt.md`, `docs/integration-clawdbot.md`, and `docs/integration-approval.md` for product-specific setup.
 
@@ -162,6 +162,34 @@ THINGS_MCP_TRANSPORT=streamable-http  # Default: streamable-http transport (only
 - Strips n8n-specific extra parameters (`toolCallId`, `sessionId`, `action`, `chatInput`) per [n8n bug #21500](https://github.com/n8n-io/n8n/issues/21500)
 - Strips null values for optional fields (n8n sends explicit nulls)
 - Tracks tool call statistics for shutdown summary
+
+## Agent Usage
+
+**MCP Endpoint:** `https://somatogenic-claudine-vimineous.ngrok-free.dev/mcp`
+**Required header:** `ngrok-skip-browser-warning: true`
+
+**Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "things-mcp": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote",
+               "https://somatogenic-claudine-vimineous.ngrok-free.dev/mcp",
+               "--header", "ngrok-skip-browser-warning: true"]
+    }
+  }
+}
+```
+
+**Claude Code / Claude Mobile:** Add via claude.ai → Settings → Integrations → MCP Servers with the URL above and the header.
+
+**Prerequisites for server to be reachable:**
+1. `com.nicoloorozco.things-mcp-server` LaunchAgent running (starts at boot, binds port 8009)
+2. `com.nicoloorozco.ngrok` LaunchAgent running (starts at boot, tunnels port 8009 → ngrok domain)
+3. `~/.local/bin/uv` has Full Disk Access in System Settings → Privacy & Security (one-time grant; required for LaunchAgent to read the Things 3 database)
+
+**Health check:** `bash scripts/health-check.sh`
 
 ## Important Constraints
 
