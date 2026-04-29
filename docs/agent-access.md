@@ -1,5 +1,15 @@
 # Agent Access — Things MCP Server
 
+> ## ⚠️ DO NOT START THE SERVER
+>
+> Never run `uv run server`, `cd mcp-things && uv run server`, or any variant that starts the
+> FastMCP process. The server is managed exclusively by a macOS LaunchAgent. A second instance
+> causes a port 8009 collision → crash loop → repeated macOS "uv would like to access data from
+> other apps" permission dialogs.
+>
+> **If the endpoint is unreachable:** report the error. Do not attempt to fix it.
+> Correct diagnostic: `launchctl list | grep things` and `bash scripts/health-check.sh`
+
 How to connect AI agents and remote clients to the Things MCP server running as a macOS LaunchAgent.
 
 ## Architecture

@@ -3,6 +3,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ⚠️ AGENT RULES — READ FIRST
+
+**NEVER run `uv run server`, `python server.py`, or any command that starts the Things MCP server process.** The server runs as a persistent macOS LaunchAgent (`com.nicoloorozco.things-mcp-server`). Starting a second instance causes a port 8009 conflict, a crash-restart loop, and repeated macOS permission dialogs that spam the user.
+
+**If the Things MCP endpoint is unreachable: STOP and report the error.** Do not attempt to start, restart, or fix the server. Do not run any process in the `mcp-things` directory that binds a port. The correct response is: "The Things MCP server at the ngrok endpoint is unreachable. Please check LaunchAgent status: `launchctl list | grep things`."
+
+**Correct way to use Things 3:** Call tools via the MCP endpoint — never via direct shell commands, AppleScript, or process spawning.
+
+```
+Endpoint:  https://somatogenic-claudine-vimineous.ngrok-free.dev/mcp
+Header:    ngrok-skip-browser-warning: true
+Transport: streamable-http
+```
+
 ## Project Overview
 
 Things MCP is a Model Context Protocol server for Things 3 (macOS task management app). It enables AI assistants to interact with Things 3 through natural language via the FastMCP framework. **macOS only** - requires native AppleScript and URL scheme access.

@@ -1,6 +1,25 @@
 
 # AGENTS
 
+> ## 🚫 CRITICAL — READ BEFORE DOING ANYTHING
+>
+> **NEVER run `uv run server` or any command that starts the Things MCP server.**
+> The server is managed by a macOS LaunchAgent (`com.nicoloorozco.things-mcp-server`).
+> Starting a second instance causes port 8009 collision → crash loop → macOS permission spam.
+>
+> **NEVER add `things` as a local MCP server pointing to `127.0.0.1:8009`** in any agent config file.
+>
+> **If Things MCP is unreachable:** stop and report. Do not try to fix the server.
+> Run `launchctl list | grep things` and `bash scripts/health-check.sh` to diagnose.
+>
+> ### Correct Access Pattern (all agents, no exceptions)
+> ```
+> Endpoint:  https://somatogenic-claudine-vimineous.ngrok-free.dev/mcp
+> Header:    ngrok-skip-browser-warning: true
+> Transport: streamable-http (MCP 2024-11-05)
+> ```
+> Session handshake: `initialize` (capture `Mcp-Session-Id`) → `notifications/initialized` → `tools/call`
+
 This file tracks the agent's thoughts, ideas, and work flow for the `mcp_things` repository.
 
 ## Instructions
