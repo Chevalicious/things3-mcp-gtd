@@ -15,12 +15,12 @@ Connect the Things MCP server to n8n workflows using the **MCP Client Tool** nod
 
 ## Server URL and transport
 
-1. Start Things MCP (default: `127.0.0.1:8009`, transport `streamable-http`).
+1. Start Things MCP (default: `localhost:8009`, transport `streamable-http`).
 2. In the MCP Client Tool node, set the server URL to the **streamable HTTP** endpoint:
 
-   `http://127.0.0.1:8009/mcp`
+   `http://localhost:8009/mcp`
 
-   If n8n runs in Docker and the server runs on the host, use `http://host.docker.internal:8009/mcp` (macOS/Windows) or your LAN IP.
+   If n8n runs in Docker and the server runs on the host, use `http://host.docker.internal:8009/mcp` (macOS/Windows) or your LAN address.
 
 3. Choose **HTTP streaming / streamable HTTP** if the node offers a transport choice (SSE is deprecated in MCP; this server exposes streamable HTTP only).
 

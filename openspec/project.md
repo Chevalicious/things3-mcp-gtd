@@ -101,7 +101,7 @@ src/things_mcp/
 
 **Configuration:**
 
-- Environment variables: `THINGS_MCP_HOST` (default: `127.0.0.1`) and `THINGS_MCP_PORT` (default: `8009`)
+- Environment variables: `THINGS_MCP_HOST` (default: `localhost`) and `THINGS_MCP_PORT` (default: `8009`)
 - Use `@lru_cache(maxsize=1)` for config getters (`get_binding_host()`, `get_binding_port()`)
 - Validate and fall back to defaults for invalid env var values
 

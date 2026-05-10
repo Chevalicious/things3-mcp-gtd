@@ -103,7 +103,7 @@ Key variables:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `THINGS_MCP_HOST` | `127.0.0.1` | Server bind address |
+| `THINGS_MCP_HOST` | `localhost` | Server bind address |
 | `THINGS_MCP_PORT` | `8009` | Server port |
 | `THINGS_MCP_TRANSPORT` | `streamable-http` | Transport protocol (streamable-http only) |
 | `THINGS_AUTH_TOKEN` | (required) | Things URL scheme auth token |

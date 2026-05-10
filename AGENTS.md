@@ -1,190 +1,32 @@
+# Notes for AI coding agents
 
-# AGENTS
+This file is a short orientation for AI coding assistants working on this
+repository. Human contributors should read [`README.md`](README.md) and
+[`docs/DEVELOPERS.md`](docs/DEVELOPERS.md) instead.
 
-> ## 🚫 CRITICAL — READ BEFORE DOING ANYTHING
->
-> **NEVER run `uv run server` or any command that starts the Things MCP server.**
-> The server is managed by a macOS LaunchAgent (`com.YOUR_USERNAME.things-mcp-server`).
-> Starting a second instance causes port 8009 collision → crash loop → macOS permission spam.
->
-> **NEVER add `things` as a local MCP server pointing to `127.0.0.1:8009`** in any agent config file.
->
-> **If Things MCP is unreachable:** stop and report. Do not try to fix the server.
-> Run `launchctl list | grep things` and `bash scripts/health-check.sh` to diagnose.
->
-> ### Correct Access Pattern (all agents, no exceptions)
-> ```
-> Endpoint:  https://somatogenic-claudine-vimineous.ngrok-free.dev/mcp
-> Header:    ngrok-skip-browser-warning: true
-> Transport: streamable-http (MCP 2024-11-05)
-> ```
-> Session handshake: `initialize` (capture `Mcp-Session-Id`) → `notifications/initialized` → `tools/call`
+## Don't start the MCP server yourself
 
-## Recovery Runbook — Apple Event Hang
+If you're running on a machine where the Things MCP server is managed by a
+macOS LaunchAgent, **do not** run `uv run server`, `python -m things_mcp`,
+or any other command that binds port 8009. A second instance will collide
+with the LaunchAgent and trigger a crash-restart loop with repeated macOS
+permission dialogs.
 
-**Symptom:** Server accepts TCP connections but never sends HTTP responses. `bash scripts/health-check.sh` shows port NOT responding even though the LaunchAgent PID is live.
+If the MCP endpoint is unreachable, *report it* — don't try to fix it.
+Diagnose with `bash scripts/health-check.sh` and consult
+[`docs/runbook-recovery.md`](docs/runbook-recovery.md).
 
-**Root cause:** The macOS Apple Event (AE) system became hung. `osascript` entered an uninterruptible D-state and blocked the asyncio event loop.
+## Repo conventions
 
-**Recovery steps (in order):**
+- Lint and format with `ruff check .` and `ruff format .` before committing.
+- CI-safe tests: `uv run python -m pytest tests`. Tests marked `real`
+  require Things 3 and run only on macOS dev machines.
+- Significant architectural changes should be proposed under
+  `openspec/changes/<change-id>/` (see `openspec/project.md`).
+- Never log task titles or notes — they're user PII.
+  Use the redaction helpers in `src/things_mcp/logging_config.py`.
 
-1. **Open Things 3 from the Dock** (or run `open -a Things3` in Terminal). This uses a different launch path that can wake the AE daemon. Wait 10–15 s, then rerun `bash scripts/health-check.sh`.
+## Recovery runbook
 
-2. **Send a URL-scheme open:**
-   ```bash
-   open "things:///show?id=inbox"
-   ```
-   The URL scheme bypasses osascript entirely and can kick AE loose. Wait 10 s and re-check.
-
-3. **If AE remains hung — restart the server via LaunchAgent** (this is the sanctioned path, not the same as manually running `uv run server`):
-   ```bash
-   launchctl kickstart -k gui/$(id -u)/com.YOUR_USERNAME.things-mcp-server
-   ```
-   The `-k` flag kills the current process and starts a fresh one. The LaunchAgent keeps it alive after that.
-
-4. **Last resort — reboot.** A hard AE hang that survives all of the above requires a macOS restart to reset the IPC infrastructure.
-
-**Why `launchctl kickstart -k` is safe here:** It uses the LaunchAgent (the sanctioned manager for this process), not `uv run server`. The LaunchAgent prevents port-conflict crash loops and restores all env vars correctly. Never run `uv run server` directly.
-
----
-
-This file tracks the agent's thoughts, ideas, and work flow for the `mcp_things` repository.
-
-## Instructions
-
-- Append a new entry under `## Log` for each change made.
-- Briefly describe the reasoning behind significant decisions.
-- Run `ruff check .` and `pytest` after modifications.
-
-## Log
-
-### 2026-04-15
-
-- Implemented OpenSpec change `add-client-integration-docs`: added `docs/integration-*.md` guides for n8n, ChatGPT, OpenClaw (Clawdbot), and publishing notes; linked from README, `CLAUDE.md`, and `docs/DEVELOPERS.md`; cross-linked compatibility docs. OpenClaw naming follows upstream docs (OpenClaw / `docs.clawd.bot` + `docs.openclaw.ai`).
-- Ran `ruff format` on the tree (including `applescript_bridge.py`, `fast_server.py`, `oauth.py`) so CI format checks pass; OAuth token endpoint now requires `redirect_uri` and matches it to the stored authorization redirect.
-
-### 2025-10-16 (continued)
-
-- Implemented OpenSpec change `add-mcp-crud-tests` - Comprehensive test suite for MCP operations
-  - Created `tests/` directory with full test infrastructure
-  - Added `tests/conftest.py` with fixtures for both mocked unit tests and real Things 3 integration tests
-  - Implemented unit tests (mocked) for all CRUD operations: todos, projects, read operations, integration workflows, error handling
-  - Implemented real integration tests with automatic cleanup using `test_data_tracker` fixture
-  - Added test commands to `pyproject.toml`: `test` (unit only, CI/CD safe), `test:dev` (all tests), `test:unit`, `test:integration`
-  - Updated `pytest.ini` to exclude real integration tests by default (`-m "not real"`)
-  - Added `pytest-asyncio` dependency for async test support
-  - Created comprehensive `TESTING.md` documentation
-  - Updated README.md with testing section
-  - All tests use pytest markers: `unit` (default), `integration`, `real` (dev only), `slow`
-  - Real integration tests gracefully skip if Things 3 is not available
-  - Test coverage target: >80% on handler functions
-
-### 2025-10-16 (continued)
-
-- Implemented OpenSpec change `modernize-osascript-fastmcp` - Background execution for AppleScript operations
-  - Modified `run_applescript()` in `applescript_bridge.py` to automatically wrap Things3 commands with `without activating` clause
-  - Added `THINGS_MCP_DISABLE_BACKGROUND_OSASCRIPT` environment variable to allow disabling background execution for debugging
-  - Updated `tag_handler.py` to use `run_applescript()` instead of direct subprocess calls for consistency
-  - Updated `utils.py` to use `run_applescript()` for Things3 operations (version detection, app state checks)
-  - Reviewed FastMCP integration - confirmed it already uses modern best practices (introspection for backward compatibility, metadata usage, proper annotations)
-  - Updated README.md to document new environment variable in Configuration section
-  - All AppleScript operations now run in background by default, preventing Things from appearing in foreground and interrupting user workflow
-
-### 2025-10-16
-
-- **Completed and archived OpenSpec change `remove-legacy-mcp` - Consolidated to FastMCP-only implementation (v2.0.0)**
-  - Deleted 5 legacy files: things_server.py, simple_server.py, simple_url_scheme.py, mcp_tools.py, and src/things_mcp/things_server.py
-  - Updated pyproject.toml, smithery.yaml, and **init**.py to version 2.0.0
-  - Updated README.md: removed Migration & Deprecation section, added concise Version 2.0 Changes section
-  - Created comprehensive CHANGELOG.md entry for 2.0.0 with breaking changes and migration guide
-  - Maintained all 19 MCP tool APIs - full backward compatibility at tool level
-  - Removed ~714 lines of duplicate code, simplified maintenance
-  - Archived to openspec/changes/archive/2025-10-16-remove-legacy-mcp/
-- Created OpenSpec change proposal `remove-legacy-mcp` for consolidating to FastMCP-only implementation
-  - Comprehensive proposal.md documenting why (dual-implementation burden), what (remove 5 legacy files), and impact (breaking change → v2.0.0)
-  - Detailed tasks.md with 8 implementation phases: pre-flight checks, code removal, import cleanup, config updates, documentation, testing, versioning, validation
-  - Design.md with technical decisions, migration plan, risks/mitigations, rollback strategy
-  - No spec deltas needed (implementation consolidation maintains all 19 tool APIs)
-- Created comprehensive openspec/project.md with full project context (purpose, tech stack, conventions, domain knowledge, constraints, dependencies)
-- Cleaned up and improved README.md based on openspec structure:
-  - Enhanced overview and key benefits section
-  - Added prerequisites section upfront
-  - Better organized features by category (Things 3 Integration, Reliability, MCP)
-  - Complete inventory of all 19 MCP tools with descriptions
-  - Added architecture diagram and data flow
-  - New sections: Usage with AI Assistants, Code Quality, Troubleshooting, Migration & Deprecation
-  - Fixed all 44 markdown linting errors
-- Removed redundant documentation files:
-  - Deleted RELEASE_NOTES.md (redundant with CHANGELOG.md)
-  - Deleted IMPLEMENTATION_SUMMARY.md (covered by openspec/project.md, README.md, and AGENTS.md)
-- Updated smithery.yaml to align with improved documentation:
-  - Refreshed descriptions to match new README
-  - Added all 19 tools (was only 10)
-  - Added THINGS_MCP_HOST and THINGS_MCP_PORT config options
-  - Updated tags for better discoverability
-
-### 2025-10-11
-
-- Added shared MCP error helper returning `CallToolResult` and updated tool handlers to use it for failure cases.
-
-### 2025-10-11
-
-- Added MCP tool annotations across registration and Fast/Simple server implementations to align with MCP metadata expectations.
-
-### 2025-10-11
-
-- Added CLI flags and env var validation to the run script so operators can easily bind to alternate hosts and ports without manual exports.
-- Extended FastMCP server binding logic and README guidance to document the new port override support.
-
-### 2025-10-10
-
-- Added FastMCP constructor introspection for icon support and guarded icon metadata so older runtimes still launch cleanly.
-
-### 2025-10-09
-
-- Added compatibility helper so FastMCP icon metadata works whether or not `mcp.types.Icon` is available in the runtime.
-- Guarded FastMCP server construction so `website_url` metadata is only passed when supported by the installed MCP version.
-
-### 2025-10-07
-
-- Implemented logging redaction across handlers and the AppleScript bridge so user task content stays out of logs.
-- Removed duplicate binding announcements from the CLI entrypoint so runtime logging only happens once and cached the binding helper for reuse.
-- Clarified binding logs and helper exports so launchers surface localhost default without double logging.
-- Switched FastMCP server default bind address to localhost with env override and documented exposure steps.
-- Added FastMCP metadata (instructions, website, icon) constants and wired them into the server instantiation.
-- Documented the surfaced assistant guidance in the README to mirror the MCP experience.
-- Converted MCP icon metadata to use `mcp.types.Icon` objects to satisfy FastMCP validation.
-
-### 2025-09-01
-
-- Added `run_things_fastmcp.sh` helper script and integrated Rich logging.
-- Documented macOS limitations preventing Docker usage for opening scripts.
-- Introduced this AGENTS.md to record ongoing work.
-
-### 2025-09-01
-
-- Updated run script to bootstrap a uv-managed virtual environment or fall back to system Python.
-- Clarified Quick Start docs about the helper script's environment handling.
-
-### 2025-10-07
-
-- Added standalone privacy and terms documents so operators understand local data handling and policy expectations.
-- Updated README to link to the new policies and prompt users to review them before setup, keeping onboarding aligned with compliance guidance.
-
-## 2026-04-21 — OpenClaw MCP Integration Notes
-
-### Key Documentation
-- OpenClaw integration: `docs/integration-clawdbot.md`
-- Streamable HTTP session management (critical): see bridge.js commit `5ff7ab7` (Apr 19 2026)
-
-### IMPORTANT: MCP Session Lifecycle
-The bridge requires proper streamable-http session management:
-1. `initialize()` → capture `Mcp-Session-Id` from response header
-2. All subsequent calls must include `Mcp-Session-Id` header
-
-OpenClaw's built-in MCP tools may NOT implement this. Use mcporter as fallback:
-```bash
-mcporter call "things.complete-task" --args '{"task_id": "UUID"}'
-```
-
-See `docs/integration-clawdbot.md` for full details.
+Apple Event hangs and LaunchAgent recovery procedures live in
+[`docs/runbook-recovery.md`](docs/runbook-recovery.md).

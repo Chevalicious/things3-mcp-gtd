@@ -17,8 +17,8 @@ Use Things MCP with **ChatGPT apps** (formerly “connectors”) that speak MCP 
 ## Transport and URL
 
 - This server uses **streamable HTTP** only; the MCP path is **`/mcp`**.
-- Locally: `http://127.0.0.1:8009/mcp`
-- For ChatGPT: configure the app with an **HTTPS** base URL that terminates TLS and proxies to `http://127.0.0.1:8009` so that **`https://your-host/...`** maps to the same JSON-RPC streamable HTTP MCP session your local clients use.
+- Locally: `http://localhost:8009/mcp`
+- For ChatGPT: configure the app with an **HTTPS** base URL that terminates TLS and proxies to `http://localhost:8009` so that **`https://your-host/...`** maps to the same JSON-RPC streamable HTTP MCP session your local clients use.
 
 Exact UI labels change over time; follow OpenAI’s “Connect from ChatGPT” guide for creating the app and pasting the MCP URL.
 

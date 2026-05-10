@@ -178,7 +178,7 @@ def _transform_schema_for_clients(schema: dict) -> dict:
 2. **Use ngrok for HTTPS** (ChatGPT requires HTTPS):
 
    ```bash
-   ngrok http 127.0.0.1:8009
+   ngrok http localhost:8009
    ```
 
 3. **Connect ChatGPT to the ngrok HTTPS URL**

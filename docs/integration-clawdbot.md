@@ -2,7 +2,7 @@
 
 **OpenClaw** (often referred to in docs as **Clawdbot**) is a self-hosted gateway that connects chat channels to AI agents. It can register **remote MCP servers** so embedded runtimes (for example Pi) use the same tool definitions without duplicating config.
 
-Things MCP is a **normal FastMCP streamable HTTP** server on `http://127.0.0.1:8009/mcp`. OpenClaw stores MCP server definitions under `mcp.servers` in config.
+Things MCP is a **normal FastMCP streamable HTTP** server on `http://localhost:8009/mcp`. OpenClaw stores MCP server definitions under `mcp.servers` in config.
 
 > **Platform note:** Things MCP requires **macOS + Things 3** where the MCP process runs. OpenClaw itself may run on other platforms; only the Things bridge must be on a Mac.
 
@@ -20,12 +20,12 @@ Example (local Mac):
 
 ```bash
 openclaw mcp set things-gtd '{
-  "url": "http://127.0.0.1:8009/mcp",
+  "url": "http://localhost:8009/mcp",
   "transport": "streamable-http"
 }'
 ```
 
-If the gateway runs on another machine, replace the host with the Mac’s LAN IP or tunnel URL and ensure the port is reachable.
+If the gateway runs on another machine, replace the host with the Mac’s LAN address or tunnel URL and ensure the port is reachable.
 
 **Stdio alternative:** MCP clients that only support stdio can launch the server as a subprocess:
 
