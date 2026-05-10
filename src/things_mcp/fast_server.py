@@ -6,13 +6,12 @@ It creates the server instance and registers all tools from the
 modular tool files organized by GTD stage.
 
 Architecture:
-- server_core.py: Server factory, middleware, n8n patches
+- server_core.py: Server factory, middleware, schema transforms
 - tool_annotations.py: Shared tool annotations
 - tools_gtd_core.py: Engage/Capture/Clarify stage tools
 - tools_gtd_organize.py: Organize stage tools
 - tools_gtd_reflect.py: Reflect stage tools
 - tools_utility.py: Utility tools (search, list, show)
-- tools_deprecated.py: Backward-compatible tool aliases
 """
 
 import random

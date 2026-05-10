@@ -11,12 +11,12 @@ This module contains:
 
 import time
 from collections import defaultdict
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, List
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import Middleware
-import mcp.types as types
+from mcp.types import Icon
 
 from .logging_config import get_logger
 from .settings import get_settings
@@ -115,31 +115,8 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8009
 HOST_ENV_VAR = "THINGS_MCP_HOST"
 
-# Type alias supporting both newer FastMCP installs (with mcp.types.Icon)
-# and older releases that still expect simple dictionaries for icon metadata.
-IconLike = Union[Any, Dict[str, Any]]
-
-
-def _build_icon(
-    src: str, *, sizes: Optional[List[str]] = None, mime_type: Optional[str] = None
-) -> IconLike:
-    """Create an icon instance compatible with the available MCP types module."""
-    icon_cls = getattr(types, "Icon", None)
-    if icon_cls is not None:
-        return icon_cls(src=src, sizes=sizes, mimeType=mime_type)
-
-    # Fall back to a plain dictionary for environments running an older MCP build
-    # that predates the Icon model.
-    icon_data: Dict[str, Any] = {"src": src}
-    if sizes:
-        icon_data["sizes"] = sizes
-    if mime_type:
-        icon_data["mimeType"] = mime_type
-    return icon_data
-
-
-ICONS: List[IconLike] = [
-    _build_icon(
+ICONS: List[Icon] = [
+    Icon(
         src="https://raw.githubusercontent.com/hfg-gmuend/openmoji/master/color/72x72/1F4DD.png",
         sizes=["64x64"],
     ),

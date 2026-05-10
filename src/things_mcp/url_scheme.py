@@ -67,7 +67,7 @@ def _open_url_background(url: str) -> bool:
 def execute_url(url: str, timeout: float = 5.0, retries: int = 2) -> bool:
     """Execute a Things URL by opening it in the default browser.
     Returns True if successful, False otherwise.
-    
+
     Args:
         url: The Things URL to execute
         timeout: Timeout in seconds for each attempt (default 5.0)
@@ -107,8 +107,10 @@ def execute_url(url: str, timeout: float = 5.0, retries: int = 2) -> bool:
                 logger.error(f"Failed to open URL: {url}")
                 if attempt < retries:
                     # Exponential backoff: 0.5s, 1s, 2s, ...
-                    sleep_time = 0.5 * (2 ** attempt)
-                    logger.info(f"Retrying in {sleep_time}s (attempt {attempt + 1}/{retries})")
+                    sleep_time = 0.5 * (2**attempt)
+                    logger.info(
+                        f"Retrying in {sleep_time}s (attempt {attempt + 1}/{retries})"
+                    )
                     time.sleep(sleep_time)
                     continue
                 return False
@@ -125,13 +127,15 @@ def execute_url(url: str, timeout: float = 5.0, retries: int = 2) -> bool:
             circuit_breaker.record_failure()
             if attempt < retries:
                 # Exponential backoff: 0.5s, 1s, 2s, ...
-                sleep_time = 0.5 * (2 ** attempt)
-                logger.info(f"Retrying in {sleep_time}s (attempt {attempt + 1}/{retries})")
+                sleep_time = 0.5 * (2**attempt)
+                logger.info(
+                    f"Retrying in {sleep_time}s (attempt {attempt + 1}/{retries})"
+                )
                 time.sleep(sleep_time)
             else:
                 logger.error(f"execute_url failed after {retries} retries: {url}")
                 return False
-    
+
     return False
 
 
