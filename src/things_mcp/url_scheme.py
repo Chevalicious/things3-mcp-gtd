@@ -197,15 +197,7 @@ def construct_url(command: str, params: Dict[str, Any]) -> str:
         logger.error(f"Error getting auth token: {str(e)}")
         # Continue without token - the operation may fail
 
-    # Disable JSON API for now as it's causing formatting issues
-    # JSON API is currently experimental and unreliable
-    # We'll use the standard URL scheme instead which is more reliable
     use_json_api = False
-
-    if False and command in ["add"] and use_json_api:
-        # This code is disabled but kept for reference
-        logger.info("JSON API is currently disabled due to formatting issues")
-        pass
 
     # Standard URL scheme encoding
     if params:
