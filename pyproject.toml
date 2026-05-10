@@ -59,7 +59,6 @@ include = [
     "README.md",
     "LICENSE",
     "pyproject.toml",
-    "things_fast_server.py",
 ]
 
 [tool.hatch.envs.default]
@@ -77,7 +76,6 @@ dev = [
 
 [project.scripts]
 server = "things_mcp.things_fast_server:main"
-dev = "things_mcp.things_fast_server:main"
 
 [tool.hatch.envs.default.scripts]
 test = "python -m pytest tests"
