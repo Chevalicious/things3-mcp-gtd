@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Template macOS LaunchAgent for the Things MCP server.
+
+  Before installing:
+    1. Replace YOUR_USERNAME with your macOS short username.
+    2. Replace YOUR_THINGS_DATA_ID with the 5-character suffix on your
+       Things data directory. Discover it with:
+           ls ~/Library/Group\ Containers/JLMPQHK86H.com.culturedcode.ThingsMac/
+       The folder is named  ThingsData-XXXXX  - that XXXXX is your value.
+    3. Adjust the WorkingDirectory path to wherever you cloned this repo.
+    4. Save the modified file as
+           ~/Library/LaunchAgents/com.things-mcp-server.plist
+       and load it with:
+           launchctl load ~/Library/LaunchAgents/com.things-mcp-server.plist
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.things-mcp-server</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/YOUR_USERNAME/.local/bin/uv</string>
+    <string>run</string>
+    <string>server</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/YOUR_USERNAME/path/to/things3-mcp-gtd</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/Users/YOUR_USERNAME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>HOME</key>
+    <string>/Users/YOUR_USERNAME</string>
+    <key>USER</key>
+    <string>YOUR_USERNAME</string>
+    <key>THINGSDB</key>
+    <string>/Users/YOUR_USERNAME/Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac/ThingsData-YOUR_THINGS_DATA_ID/Things Database.thingsdatabase/main.sqlite</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>30</integer>
+  <key>StandardOutPath</key>
+  <string>/Users/YOUR_USERNAME/.things-mcp-server.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/YOUR_USERNAME/.things-mcp-server.err</string>
+</dict>
+</plist>

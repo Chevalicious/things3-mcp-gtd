@@ -1,0 +1,140 @@
+# @format
+
+name: things3-mcp-gtd
+version: 2.0.0
+description: "GTD-native Model Context Protocol server for Things 3 on macOS, enabling AI assistants to capture, clarify, organize, reflect, and engage with tasks through natural language."
+
+# Smithery configuration
+registry:
+    displayName: "Things 3 GTD MCP Server"
+    shortDescription: "GTD-native MCP server for Things 3 with intelligent caching, circuit breakers, and privacy-aware logging."
+    longDescription: |
+        A Model Context Protocol (MCP) server for Things 3 on macOS that brings
+        Getting Things Done (GTD) methodology to AI assistants. The 12 GTD-native
+        tools are organized around David Allen's five stages -- Capture, Clarify,
+        Organize, Reflect, Engage -- so AI assistants can help you practice GTD
+        rather than simply CRUD your task database.
+
+        Built on FastMCP 3.x with production-grade reliability features:
+        intelligent caching with TTL management, circuit breaker patterns for
+        failure recovery, exponential backoff retry logic, dead-letter queue
+        for debugging, and privacy-aware structured logging. All operations
+        run locally on your Mac; no task data leaves your machine.
+
+    tags:
+        - task-management
+        - productivity
+        - things3
+        - macos
+        - fastmcp
+        - gtd
+        - reliability
+        - caching
+        - circuit-breaker
+        - privacy-first
+
+    category: "Task Management"
+
+    # Requirements
+    requirements:
+        os: ["macos"]
+        platform: ["local"]
+
+    # Documentation
+    homepage: "https://github.com/Chevalicious/things3-mcp-gtd"
+    repository: "https://github.com/Chevalicious/things3-mcp-gtd"
+    documentation: "https://github.com/Chevalicious/things3-mcp-gtd#readme"
+
+    # Installation
+    installation:
+        type: "pip"
+        package: "things3-mcp-gtd"
+
+    # Configuration requirements
+    configuration:
+        required:
+            - name: "THINGS_AUTH_TOKEN"
+              description: "Authentication token from Things 3 -> Settings -> General -> Enable Things URLs (or run scripts/configure_token.py)."
+              type: "string"
+              secret: true
+        optional:
+            - name: "THINGS_MCP_HOST"
+              description: "Server bind address (default: localhost; use 0.0.0.0 to expose to LAN)."
+              type: "string"
+              default: "localhost"
+            - name: "THINGS_MCP_PORT"
+              description: "Server port (default: 8009)."
+              type: "integer"
+              default: 8009
+            - name: "THINGS_MCP_REQUIRE_AUTH"
+              description: "Require Bearer token on all /mcp requests (default: false; recommended when exposing beyond loopback)."
+              type: "boolean"
+              default: false
+            - name: "THINGS_MCP_DEBUG"
+              description: "Verbose console logging (default: false)."
+              type: "boolean"
+              default: false
+
+# Build configuration
+build:
+    type: "python"
+    python_version: "3.12"
+    entry_point: "things_mcp.things_fast_server:main"
+
+    dependencies:
+        - "fastmcp>=3.0.2"
+        - "httpx>=0.28.1"
+        - "pydantic-settings>=2.0.0"
+        - "things-py>=0.0.15"
+        - "rich>=13.7.0"
+        - "wsproto>=1.2.0"
+
+# Deployment settings
+deployment:
+    type: "local"   # The server runs locally on the user's Mac, not on Smithery's infra.
+
+# Health checks
+health:
+    startup_timeout: 30
+
+# Tools provided by this MCP server (12 GTD-native + 1 search; legacy CRUD tools were removed in v2.0.0)
+tools:
+    # Capture (1)
+    - name: "capture-task"
+      description: "Quick-capture a task to the Inbox without organizing it."
+
+    # Clarify (2)
+    - name: "process-inbox"
+      description: "Process the oldest inbox item with GTD decision guidance."
+    - name: "convert-to-project"
+      description: "Convert a task into a multi-step project, preserving checklist items and deadlines."
+
+    # Organize (5)
+    - name: "schedule-task"
+      description: "Create an organized task with context, dates, project, and tags."
+    - name: "delegate-task"
+      description: "Mark a task as Waiting For with a person and optional follow-up."
+    - name: "defer-task"
+      description: "Move a task to Someday/Maybe or schedule it for a future date."
+    - name: "plan-project"
+      description: "Create a project with initial tasks atomically."
+    - name: "modify-task"
+      description: "Update fields on an existing task or project."
+
+    # Reflect (2)
+    - name: "daily-review"
+      description: "Today's tasks, overdue items, and inbox status."
+    - name: "weekly-review"
+      description: "Stalled projects, waiting-for items, and the someday list."
+
+    # Engage (3)
+    - name: "get-tasks"
+      description: "Context-first task retrieval (replaces all per-list view tools)."
+    - name: "focus-mode"
+      description: "Return the single most important task for the current context."
+    - name: "complete-task"
+      description: "Mark a task done by ID or fuzzy title match."
+
+    # Utility
+    - name: "search-tasks"
+      description: "Full-text and filtered search across todos and projects."
