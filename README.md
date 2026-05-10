@@ -52,19 +52,17 @@ which writes the token to `~/.things-mcp/config.json`.
 
 ## Quick start
 
+Make sure Things 3 is open, then:
+
 ```bash
-# 1. Make sure Things 3 is open
-# 2. Start the server
+# If installed via pip or uvx
+things3-mcp-gtd
+
+# If running from source
 uv run server
 ```
 
-Verify it's reachable:
-
-```bash
-bash scripts/health-check.sh
-```
-
-The server binds to `localhost:8009` by default and exposes a single MCP endpoint at `/mcp` over streamable HTTP.
+The server binds to `localhost:8009` by default with a single MCP endpoint at `/mcp` over streamable HTTP.
 
 ## Connecting an MCP client
 
@@ -72,10 +70,24 @@ The server binds to `localhost:8009` by default and exposes a single MCP endpoin
 
 `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
+**If installed via pip:**
+
 ```json
 {
   "mcpServers": {
-    "things": {
+    "things3-gtd": {
+      "command": "things3-mcp-gtd"
+    }
+  }
+}
+```
+
+**If running from source:**
+
+```json
+{
+  "mcpServers": {
+    "things3-gtd": {
       "command": "uv",
       "args": ["run", "server"]
     }
@@ -100,7 +112,7 @@ Compatibility deep-dives: [n8n + FastMCP](docs/n8n-fastmcp-compatibility.md), [C
 
 ## Tools
 
-13 tools organized by GTD stage:
+19 GTD-native tools organized by stage:
 
 ### Capture
 
@@ -145,8 +157,11 @@ Compatibility deep-dives: [n8n + FastMCP](docs/n8n-fastmcp-compatibility.md), [C
 | Tool | Purpose |
 |------|---------|
 | `search-tasks` | Full-text and filtered search. |
-
-> **Migration note (v1.x → v2.0):** 18 legacy CRUD-style tools (`get-inbox`, `add-todo`, `update-project`, etc.) were removed in favor of the GTD-native tools above. See [CHANGELOG.md](CHANGELOG.md) for the full mapping.
+| `get-projects` | List all projects. |
+| `get-areas` | List all areas of responsibility. |
+| `get-tags` | List all tags. |
+| `show-in-app` | Open a task or project in Things 3. |
+| `get-cache-stats` | Cache performance statistics (debugging). |
 
 ### GTD context tags
 

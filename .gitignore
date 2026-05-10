@@ -207,3 +207,6 @@ secrets.env
 # Per-user copies of the LaunchAgent plist; only the .example template is tracked
 deploy/launchagents/*.plist
 !deploy/launchagents/*.plist.example
+
+# Local infrastructure notes (not for public repo)
+AGENTS.md
