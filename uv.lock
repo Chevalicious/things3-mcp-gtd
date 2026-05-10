@@ -709,7 +709,7 @@ wheels = [
 ]
 
 [[package]]
-name = "mcp-things"
+name = "things3-mcp-gtd"
 version = "2.0.0"
 source = { editable = "." }
 dependencies = [

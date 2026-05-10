@@ -14,12 +14,11 @@ from fastmcp import FastMCP, Context
 from fastmcp.exceptions import ToolError
 
 from .formatters import format_todo
-from .utils import app_state, _normalize_id
+from .utils import _normalize_id, ensure_things_running
 from .url_scheme import (
     add_todo,
     update_todo,
     execute_url,
-    launch_things,
     add_project_with_tasks,
 )
 from .logging_config import get_logger
@@ -366,20 +365,19 @@ def register_gtd_core_tools(mcp: FastMCP):
                 task_id = matches[0].get("uuid")
 
             # Ensure Things app is running
-            if not app_state.update_app_state():
-                if not launch_things():
-                    _error_result("Unable to launch Things app")
+            if not await ensure_things_running():
+                _error_result("Unable to launch Things app")
 
             # Append completion notes if provided
             if completion_notes:
                 url = update_todo(
                     id=task_id, append_notes=f"\n[Completed] {completion_notes}"
                 )
-                execute_url(url)
+                await asyncio.to_thread(execute_url, url)
 
             # Mark as completed
             url = update_todo(id=task_id, completed=True)
-            success = execute_url(url)
+            success = await asyncio.to_thread(execute_url, url)
 
             if not success:
                 _error_result("Failed to complete task")
@@ -424,9 +422,8 @@ def register_gtd_core_tools(mcp: FastMCP):
 
         try:
             # Ensure Things app is running
-            if not app_state.update_app_state():
-                if not launch_things():
-                    _error_result("Unable to launch Things app")
+            if not await ensure_things_running():
+                _error_result("Unable to launch Things app")
 
             # Ensure tags exist
             if tags:
@@ -434,7 +431,7 @@ def register_gtd_core_tools(mcp: FastMCP):
 
             # Create in inbox (no when/list specified = inbox)
             url = add_todo(title=title, notes=notes, tags=tags)
-            success = execute_url(url)
+            success = await asyncio.to_thread(execute_url, url)
 
             if not success:
                 _error_result("Failed to capture task")
@@ -556,9 +553,8 @@ def register_gtd_core_tools(mcp: FastMCP):
                 _error_result("Can only convert to-do items to projects")
 
             # Ensure Things app is running
-            if not app_state.update_app_state():
-                if not launch_things():
-                    _error_result("Unable to launch Things app")
+            if not await ensure_things_running():
+                _error_result("Unable to launch Things app")
 
             # Create project with task's details
             project_title = task.get("title", "New Project")
@@ -587,14 +583,14 @@ def register_gtd_core_tools(mcp: FastMCP):
                 tags=task.get("tags"),
                 area=task.get("area_title"),
             )
-            success = execute_url(url)
+            success = await asyncio.to_thread(execute_url, url)
 
             if not success:
                 _error_result("Failed to create project")
 
             # Delete/cancel the original task
             cancel_url = update_todo(id=task_id, canceled=True)
-            execute_url(cancel_url)
+            await asyncio.to_thread(execute_url, cancel_url)
 
             invalidate_caches_for(["get-inbox", "get-projects", "get-tasks"])
 

@@ -5,9 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## ⚠️ AGENT RULES — READ FIRST
 
-**NEVER run `uv run server`, `python server.py`, or any command that starts the Things MCP server process.** The server runs as a persistent macOS LaunchAgent (`com.nicoloorozco.things-mcp-server`). Starting a second instance causes a port 8009 conflict, a crash-restart loop, and repeated macOS permission dialogs that spam the user.
+**NEVER run `uv run server`, `python server.py`, or any command that starts the Things MCP server process.** The server runs as a persistent macOS LaunchAgent (`com.YOUR_USERNAME.things-mcp-server`). Starting a second instance causes a port 8009 conflict, a crash-restart loop, and repeated macOS permission dialogs that spam the user.
 
-**If the Things MCP endpoint is unreachable: STOP and report the error.** Do not attempt to start, restart, or fix the server. Do not run any process in the `mcp-things` directory that binds a port. The correct response is: "The Things MCP server at the ngrok endpoint is unreachable. Please check LaunchAgent status: `launchctl list | grep things`."
+**If the Things MCP endpoint is unreachable: STOP and report the error.** Do not attempt to start, restart, or fix the server. Do not run any process in the `things3-mcp-gtd` directory that binds a port. The correct response is: "The Things MCP server at the ngrok endpoint is unreachable. Please check LaunchAgent status: `launchctl list | grep things`."
 
 **Correct way to use Things 3:** Call tools via the MCP endpoint — never via direct shell commands, AppleScript, or process spawning.
 
@@ -27,7 +27,7 @@ Things MCP is a Model Context Protocol server for Things 3 (macOS task managemen
 
 ```bash
 # Clone and install
-git clone https://github.com/CaseyRo/mcp-things.git
+git clone https://github.com/Chevalicious/things3-mcp-gtd.git
 cd mcp_things
 uv pip install -e .
 
@@ -199,8 +199,8 @@ THINGS_MCP_TRANSPORT=streamable-http  # Default: streamable-http transport (only
 **Claude Code / Claude Mobile:** Add via claude.ai → Settings → Integrations → MCP Servers with the URL above and the header.
 
 **Prerequisites for server to be reachable:**
-1. `com.nicoloorozco.things-mcp-server` LaunchAgent running (starts at boot, binds port 8009)
-2. `com.nicoloorozco.ngrok` LaunchAgent running (starts at boot, tunnels port 8009 → ngrok domain)
+1. `com.YOUR_USERNAME.things-mcp-server` LaunchAgent running (starts at boot, binds port 8009)
+2. `com.YOUR_USERNAME.ngrok` LaunchAgent running (starts at boot, tunnels port 8009 → ngrok domain)
 3. `~/.local/bin/uv` has Full Disk Access in System Settings → Privacy & Security (one-time grant; required for LaunchAgent to read the Things 3 database)
 
 **Health check:** `bash scripts/health-check.sh`

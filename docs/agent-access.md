@@ -2,7 +2,7 @@
 
 > ## ⚠️ DO NOT START THE SERVER
 >
-> Never run `uv run server`, `cd mcp-things && uv run server`, or any variant that starts the
+> Never run `uv run server`, `cd things3-mcp-gtd && uv run server`, or any variant that starts the
 > FastMCP process. The server is managed exclusively by a macOS LaunchAgent. A second instance
 > causes a port 8009 collision → crash loop → repeated macOS "uv would like to access data from
 > other apps" permission dialogs.
@@ -33,8 +33,8 @@ Cursor          ──HTTPS───────┘
 ### 1. Install and configure the server
 
 ```bash
-git clone https://github.com/CaseyRo/mcp-things.git
-cd mcp-things
+git clone https://github.com/Chevalicious/things3-mcp-gtd.git
+cd things3-mcp-gtd
 uv pip install -e .
 python scripts/configure_token.py   # sets THINGS_AUTH_TOKEN in .env
 ```
@@ -44,11 +44,11 @@ python scripts/configure_token.py   # sets THINGS_AUTH_TOKEN in .env
 Copy the plist from this repo and install it:
 
 ```bash
-cp deploy/launchagents/com.nicoloorozco.things-mcp-server.plist \
-   ~/Library/LaunchAgents/com.nicoloorozco.things-mcp-server.plist
+cp deploy/launchagents/com.YOUR_USERNAME.things-mcp-server.plist \
+   ~/Library/LaunchAgents/com.YOUR_USERNAME.things-mcp-server.plist
 ```
 
-Edit the plist to replace `nicoloorozco` with your username and update the `THINGSDB` path to match your Things database location (the `ThingsData-ZHBUE` segment differs per account):
+Edit the plist to replace `YOUR_USERNAME` with your username and update the `THINGSDB` path to match your Things database location (the `ThingsData-ZHBUE` segment differs per account):
 
 ```bash
 # Find your actual database path:
@@ -58,7 +58,7 @@ ls ~/Library/Group\ Containers/JLMPQHK86H.com.culturedcode.ThingsMac/ThingsData-
 Then load it:
 
 ```bash
-launchctl load ~/Library/LaunchAgents/com.nicoloorozco.things-mcp-server.plist
+launchctl load ~/Library/LaunchAgents/com.YOUR_USERNAME.things-mcp-server.plist
 ```
 
 ### 3. Grant Full Disk Access to `uv` (one-time, survives reboots)
@@ -214,8 +214,8 @@ THINGS_MCP_NGROK_DOMAIN=your-domain.ngrok-free.dev bash scripts/health-check.sh
 | Server hangs at startup, no port 8009 binding | Automation permission pending | System Settings → Privacy & Security → Automation → enable Things 3 for `uv`. This must be granted once; the server blocks on the AppleScript startup check until approved. |
 | Tools listed but all fail | Same as above or Things 3 not open | Grant FDA + Automation; open Things 3 |
 | 404 on ngrok URL | Missing `/mcp` path | Use full URL: `https://domain.ngrok-free.dev/mcp` |
-| Tunnel unreachable | ngrok not running | `launchctl kickstart -k gui/$(id -u)/com.nicoloorozco.ngrok` |
-| Server not responding on 8009 | LaunchAgent stopped | `launchctl kickstart -k gui/$(id -u)/com.nicoloorozco.things-mcp-server` |
+| Tunnel unreachable | ngrok not running | `launchctl kickstart -k gui/$(id -u)/com.YOUR_USERNAME.ngrok` |
+| Server not responding on 8009 | LaunchAgent stopped | `launchctl kickstart -k gui/$(id -u)/com.YOUR_USERNAME.things-mcp-server` |
 | Repeated "uv would like to access data" prompts | Port 8009 conflict causing crash loop | Kill orphan: `lsof -ti:8009 \| xargs kill -9`; ensure no agent connects to 127.0.0.1:8009 directly; `ThrottleInterval` in plist prevents rapid restarts |
 
 ## Log Locations

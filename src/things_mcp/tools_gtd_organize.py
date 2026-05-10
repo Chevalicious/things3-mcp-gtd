@@ -10,12 +10,11 @@ import things
 from fastmcp import FastMCP, Context
 from fastmcp.exceptions import ToolError
 
-from .utils import app_state, _normalize_id
+from .utils import _normalize_id, ensure_things_running
 from .url_scheme import (
     add_todo,
     update_todo,
     execute_url,
-    launch_things,
     add_project_with_tasks,
 )
 from .logging_config import get_logger
@@ -74,9 +73,8 @@ def register_gtd_organize_tools(mcp: FastMCP):
 
         try:
             # Ensure Things app is running
-            if not app_state.update_app_state():
-                if not launch_things():
-                    _error_result("Unable to launch Things app")
+            if not await ensure_things_running():
+                _error_result("Unable to launch Things app")
 
             # Combine context with any other tags
             tags = context if context else None
@@ -94,7 +92,7 @@ def register_gtd_organize_tools(mcp: FastMCP):
                 list_title=project,  # project name
             )
 
-            success = execute_url(url)
+            success = await asyncio.to_thread(execute_url, url)
             if not success:
                 _error_result("Failed to schedule task")
 
@@ -161,9 +159,8 @@ def register_gtd_organize_tools(mcp: FastMCP):
                 _error_result(f"Task not found: {task_id}")
 
             # Ensure Things app is running
-            if not app_state.update_app_state():
-                if not launch_things():
-                    _error_result("Unable to launch Things app")
+            if not await ensure_things_running():
+                _error_result("Unable to launch Things app")
 
             original_title = task.get("title", "")
             new_title = f"Waiting: {delegated_to} - {original_title}"
@@ -187,7 +184,7 @@ def register_gtd_organize_tools(mcp: FastMCP):
                 deadline=follow_up_date,
             )
 
-            success = execute_url(url)
+            success = await asyncio.to_thread(execute_url, url)
             if not success:
                 _error_result("Failed to delegate task")
 
@@ -241,9 +238,8 @@ def register_gtd_organize_tools(mcp: FastMCP):
 
         try:
             # Ensure Things app is running
-            if not app_state.update_app_state():
-                if not launch_things():
-                    _error_result("Unable to launch Things app")
+            if not await ensure_things_running():
+                _error_result("Unable to launch Things app")
 
             # Map friendly names to Things values
             when_map = {
@@ -277,7 +273,7 @@ def register_gtd_organize_tools(mcp: FastMCP):
                 append_notes=notes_update,
             )
 
-            success = execute_url(url)
+            success = await asyncio.to_thread(execute_url, url)
             if not success:
                 _error_result("Failed to defer task")
 
@@ -337,9 +333,8 @@ def register_gtd_organize_tools(mcp: FastMCP):
 
         try:
             # Ensure Things app is running
-            if not app_state.update_app_state():
-                if not launch_things():
-                    _error_result("Unable to launch Things app")
+            if not await ensure_things_running():
+                _error_result("Unable to launch Things app")
 
             # Check for next action
             has_next_action = any(
@@ -356,7 +351,7 @@ def register_gtd_organize_tools(mcp: FastMCP):
                 area=area,
             )
 
-            success = execute_url(url)
+            success = await asyncio.to_thread(execute_url, url)
             if not success:
                 _error_result("Failed to create project")
 
@@ -423,9 +418,8 @@ def register_gtd_organize_tools(mcp: FastMCP):
 
         try:
             # Ensure Things app is running
-            if not app_state.update_app_state():
-                if not launch_things():
-                    _error_result("Unable to launch Things app")
+            if not await ensure_things_running():
+                _error_result("Unable to launch Things app")
 
             # Ensure tags exist
             all_tags = (tags or []) + (add_tags or [])
@@ -446,7 +440,7 @@ def register_gtd_organize_tools(mcp: FastMCP):
                 append_checklist_items=add_checklist,
             )
 
-            success = execute_url(url)
+            success = await asyncio.to_thread(execute_url, url)
             if not success:
                 _error_result("Failed to update task")
 

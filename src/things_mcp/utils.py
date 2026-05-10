@@ -2,12 +2,12 @@
 Utility classes and functions for enhancing Things MCP reliability.
 """
 
+import asyncio
 import json
 import time
 import logging
 import os
 import platform
-import subprocess
 import mcp.types as types
 from typing import Optional
 
@@ -50,21 +50,13 @@ def is_things_running() -> bool:
             logger.warning("Things availability check only works on macOS")
             return True
 
-        # Check if Things3 is running via direct AppleScript ping
-        # (System Events approach hangs when called from Python subprocess in some envs)
-        try:
-            result = subprocess.run(
-                ["osascript", "-e", 'tell application "Things3" to return name'],
-                capture_output=True,
-                text=True,
-                check=False,
-                timeout=5,
-            )
-            is_running = result.returncode == 0 and result.stdout.strip() == "Things3"
-            return is_running
-        except subprocess.TimeoutExpired:
-            logger.warning("Things app ping timed out")
-            return False
+        from .applescript_bridge import _run_osascript_safe
+
+        returncode, stdout, _ = _run_osascript_safe(
+            ["osascript", "-e", 'tell application "Things3" to return name'],
+            timeout=5,
+        )
+        return returncode == 0 and stdout.strip() == "Things3"
     except Exception as e:
         logger.error(f"Error checking if Things is running: {str(e)}")
         return False
@@ -352,3 +344,32 @@ app_state = ThingsAppState()
 circuit_breaker = CircuitBreaker()
 dead_letter_queue = DeadLetterQueue()
 rate_limiter = RateLimiter()
+
+
+async def ensure_things_running() -> bool:
+    """Ensure Things is running from an async context.
+
+    Runs the blocking app-state check in a thread pool with an asyncio-level
+    timeout so a hung Apple Event system can never freeze the event loop.
+    Falls back to launching Things if the check returns False.
+
+    Returns True if Things is (or becomes) available, False otherwise.
+    """
+    try:
+        available = await asyncio.wait_for(
+            asyncio.to_thread(app_state.update_app_state), timeout=7
+        )
+    except asyncio.TimeoutError:
+        logger.warning("Things app state check timed out — Apple Events may be hung")
+        available = False
+
+    if available:
+        return True
+
+    from .url_scheme import launch_things
+
+    try:
+        return await asyncio.to_thread(launch_things)
+    except Exception as e:
+        logger.error(f"Error launching Things: {e}")
+        return False

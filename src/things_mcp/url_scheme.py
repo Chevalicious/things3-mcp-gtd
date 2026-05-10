@@ -46,22 +46,16 @@ def _open_url_background(url: str) -> bool:
         return False
 
     try:
-        # Use open -g to avoid stealing focus from the foreground application
+        from .applescript_bridge import _run_osascript_safe
+
         script = f'do shell script "open -g \\"{url}\\""'
-        result = subprocess.run(
-            ["osascript", "-e", script],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=10,
+        returncode, _, stderr = _run_osascript_safe(
+            ["osascript", "-e", script], timeout=10
         )
-        if result.returncode != 0:
-            logger.error(f"osascript error: {result.stderr}")
+        if returncode != 0:
+            logger.error(f"osascript error: {stderr}")
             return False
         return True
-    except subprocess.TimeoutExpired:
-        logger.warning("osascript timed out opening URL")
-        return False
     except FileNotFoundError:
         logger.warning("osascript not found; falling back to webbrowser")
         return False

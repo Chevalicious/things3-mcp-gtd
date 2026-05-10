@@ -279,4 +279,4 @@ things:///show?id=today&query=search
 - **MCP Specification**: <https://github.com/anthropics/mcp>
 - **Things URL Scheme**: <https://culturedcode.com/things/support/articles/2803573/>
 - **OpenSpec**: Change proposal workflow (see `openspec/AGENTS.md`)
-- **Project Issues**: <https://github.com/CaseyRo/mcp-things/issues>
+- **Project Issues**: <https://github.com/Chevalicious/things3-mcp-gtd/issues>

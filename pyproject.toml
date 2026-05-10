@@ -1,5 +1,5 @@
 [project]
-name = "mcp-things"
+name = "things3-mcp-gtd"
 version = "2.0.0"
 description = "Production-ready Model Context Protocol server for Things 3, enabling AI assistants to interact with your task management system through natural language"
 readme = "README.md"

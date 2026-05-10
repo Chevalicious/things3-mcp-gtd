@@ -105,10 +105,10 @@ INSTRUCTIONS_TEXT = (
     "- Requires Things 3 for macOS with scripting permissions\n"
     "- Local data only; attachments unavailable\n"
     "- Some operations take a few seconds via URL scheme\n\n"
-    "**Support**: https://github.com/CaseyRo/mcp-things/issues\n"
+    "**Support**: https://github.com/Chevalicious/things3-mcp-gtd/issues\n"
 )
 
-WEBSITE_URL = "https://github.com/CaseyRo/mcp-things"
+WEBSITE_URL = "https://github.com/Chevalicious/things3-mcp-gtd"
 
 # Default values for documentation purposes
 DEFAULT_HOST = "127.0.0.1"

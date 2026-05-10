@@ -3,25 +3,25 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.nicoloorozco.things-mcp-server</string>
+  <string>com.chevalicious.things-mcp-server</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/Users/nicoloorozco/.local/bin/uv</string>
+    <string>/Users/YOUR_USERNAME/.local/bin/uv</string>
     <string>run</string>
     <string>server</string>
   </array>
   <key>WorkingDirectory</key>
-  <string>/Users/nicoloorozco/Projects/mcp-things</string>
+  <string>/Users/YOUR_USERNAME/path/to/things3-mcp-gtd</string>
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>
-    <string>/Users/nicoloorozco/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <string>/Users/YOUR_USERNAME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
     <key>HOME</key>
-    <string>/Users/nicoloorozco</string>
+    <string>/Users/YOUR_USERNAME</string>
     <key>USER</key>
-    <string>nicoloorozco</string>
+    <string>YOUR_USERNAME</string>
     <key>THINGSDB</key>
-    <string>/Users/nicoloorozco/Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac/ThingsData-ZHBUE/Things Database.thingsdatabase/main.sqlite</string>
+    <string>/Users/YOUR_USERNAME/Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac/ThingsData-ZHBUE/Things Database.thingsdatabase/main.sqlite</string>
   </dict>
   <key>RunAtLoad</key>
   <true/>
@@ -30,8 +30,8 @@
   <key>ThrottleInterval</key>
   <integer>30</integer>
   <key>StandardOutPath</key>
-  <string>/Users/nicoloorozco/.things-mcp-server.log</string>
+  <string>/Users/YOUR_USERNAME/.things-mcp-server.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/nicoloorozco/.things-mcp-server.err</string>
+  <string>/Users/YOUR_USERNAME/.things-mcp-server.err</string>
 </dict>
 </plist>

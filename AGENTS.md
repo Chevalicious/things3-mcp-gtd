@@ -4,7 +4,7 @@
 > ## 🚫 CRITICAL — READ BEFORE DOING ANYTHING
 >
 > **NEVER run `uv run server` or any command that starts the Things MCP server.**
-> The server is managed by a macOS LaunchAgent (`com.nicoloorozco.things-mcp-server`).
+> The server is managed by a macOS LaunchAgent (`com.YOUR_USERNAME.things-mcp-server`).
 > Starting a second instance causes port 8009 collision → crash loop → macOS permission spam.
 >
 > **NEVER add `things` as a local MCP server pointing to `127.0.0.1:8009`** in any agent config file.
@@ -19,6 +19,34 @@
 > Transport: streamable-http (MCP 2024-11-05)
 > ```
 > Session handshake: `initialize` (capture `Mcp-Session-Id`) → `notifications/initialized` → `tools/call`
+
+## Recovery Runbook — Apple Event Hang
+
+**Symptom:** Server accepts TCP connections but never sends HTTP responses. `bash scripts/health-check.sh` shows port NOT responding even though the LaunchAgent PID is live.
+
+**Root cause:** The macOS Apple Event (AE) system became hung. `osascript` entered an uninterruptible D-state and blocked the asyncio event loop.
+
+**Recovery steps (in order):**
+
+1. **Open Things 3 from the Dock** (or run `open -a Things3` in Terminal). This uses a different launch path that can wake the AE daemon. Wait 10–15 s, then rerun `bash scripts/health-check.sh`.
+
+2. **Send a URL-scheme open:**
+   ```bash
+   open "things:///show?id=inbox"
+   ```
+   The URL scheme bypasses osascript entirely and can kick AE loose. Wait 10 s and re-check.
+
+3. **If AE remains hung — restart the server via LaunchAgent** (this is the sanctioned path, not the same as manually running `uv run server`):
+   ```bash
+   launchctl kickstart -k gui/$(id -u)/com.YOUR_USERNAME.things-mcp-server
+   ```
+   The `-k` flag kills the current process and starts a fresh one. The LaunchAgent keeps it alive after that.
+
+4. **Last resort — reboot.** A hard AE hang that survives all of the above requires a macOS restart to reset the IPC infrastructure.
+
+**Why `launchctl kickstart -k` is safe here:** It uses the LaunchAgent (the sanctioned manager for this process), not `uv run server`. The LaunchAgent prevents port-conflict crash loops and restores all env vars correctly. Never run `uv run server` directly.
+
+---
 
 This file tracks the agent's thoughts, ideas, and work flow for the `mcp_things` repository.
 

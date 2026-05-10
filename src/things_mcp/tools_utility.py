@@ -10,8 +10,10 @@ from fastmcp import FastMCP, Context
 from fastmcp.exceptions import ToolError
 
 from .formatters import format_todo, format_project, format_area, format_tag
-from .utils import app_state
-from .url_scheme import show, launch_things
+import asyncio
+
+from .utils import ensure_things_running
+from .url_scheme import show, execute_url
 from .logging_config import get_logger
 from .cache import get_cache_stats
 from .tool_annotations import TOOL_ANNOTATIONS
@@ -168,11 +170,13 @@ def register_utility_tools(mcp: FastMCP):
 
         try:
             # Ensure Things app is running
-            if not app_state.update_app_state():
-                if not launch_things():
-                    _error_result("Unable to launch Things app")
+            if not await ensure_things_running():
+                _error_result("Unable to launch Things app")
 
-            result = show(id=id)
+            url = show(id=id)
+            if not url:
+                _error_result(f"Failed to construct URL for '{id}'")
+            result = await asyncio.to_thread(execute_url, url)
             if not result:
                 _error_result(f"Failed to open '{id}'")
 

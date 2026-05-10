@@ -167,4 +167,4 @@ If upgrading from 1.x:
 
 Based on the original [things-mcp](https://github.com/hald/things-mcp) by Harald Lindstrøm
 
-[1.0.0]: https://github.com/CaseyRo/mcp-things/releases/tag/v1.0.0
+[1.0.0]: https://github.com/Chevalicious/things3-mcp-gtd/releases/tag/v1.0.0

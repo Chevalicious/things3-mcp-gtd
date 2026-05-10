@@ -21,7 +21,7 @@ This page summarizes how **third-party surfaces** (n8n, ChatGPT/OpenAI, ClawdHub
 
 ## Things MCP repository
 
-- **Issues and contributions:** [GitHub Issues](https://github.com/CaseyRo/mcp-things/issues)
+- **Issues and contributions:** [GitHub Issues](https://github.com/Chevalicious/things3-mcp-gtd/issues)
 - **License:** MIT — see [LICENSE](../LICENSE)
 
 ## Checklist before publishing a skill or app that wraps Things MCP

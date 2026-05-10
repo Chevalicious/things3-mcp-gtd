@@ -83,7 +83,7 @@ TOOL_ANNOTATIONS = {
 ### Installation
 
 ```bash
-git clone https://github.com/CaseyRo/mcp-things.git
+git clone https://github.com/Chevalicious/things3-mcp-gtd.git
 cd mcp_things
 uv pip install -e .
 

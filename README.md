@@ -2,15 +2,15 @@
 
 A **Model Context Protocol (MCP) server** for [Things 3](https://culturedcode.com/things/) that brings GTD (Getting Things Done) methodology to AI assistants.
 
-[![PyPI](https://img.shields.io/pypi/v/mcp-things)](https://pypi.org/project/mcp-things/)
+[![PyPI](https://img.shields.io/pypi/v/things3-mcp-gtd)](https://pypi.org/project/things3-mcp-gtd/)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buy-me-a-coffee)](https://buymeacoffee.com/caseyberlin)
 
 ## Installation
 
 ```bash
-pip install mcp-things
+pip install things3-mcp-gtd
 # or run directly without installing:
-uvx mcp-things
+uvx things3-mcp-gtd
 ```
 
 > **Note:** Review the [Privacy Notice](PRIVACY.md) and [Terms of Use](TERMS_OF_USE.md) before installation.
@@ -65,7 +65,7 @@ Contributions and ideas welcome.
 
 ```bash
 # Clone and install
-git clone https://github.com/CaseyRo/mcp-things.git
+git clone https://github.com/Chevalicious/things3-mcp-gtd.git
 cd mcp_things
 uv pip install -e .
 
@@ -241,7 +241,7 @@ The server runs as a persistent macOS LaunchAgent and is reachable by multiple a
 bash scripts/health-check.sh
 
 # Restart server
-launchctl kickstart -k gui/$(id -u)/com.nicoloorozco.things-mcp-server
+launchctl kickstart -k gui/$(id -u)/com.YOUR_USERNAME.things-mcp-server
 ```
 
 ## Credits
@@ -258,7 +258,7 @@ MIT License — see [LICENSE](LICENSE).
 
 ## Links
 
-- [GitHub Issues](https://github.com/CaseyRo/mcp-things/issues)
+- [GitHub Issues](https://github.com/Chevalicious/things3-mcp-gtd/issues)
 - [FastMCP Documentation](https://gofastmcp.com)
 - [Things 3 URL Scheme](https://culturedcode.com/things/support/articles/2803573/)
 - [GTD Methodology](https://gettingthingsdone.com/)
