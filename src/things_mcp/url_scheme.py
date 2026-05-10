@@ -197,8 +197,6 @@ def construct_url(command: str, params: Dict[str, Any]) -> str:
         logger.error(f"Error getting auth token: {str(e)}")
         # Continue without token - the operation may fail
 
-    use_json_api = False
-
     # Standard URL scheme encoding
     if params:
         encoded_params = []
