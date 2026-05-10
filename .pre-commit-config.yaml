@@ -1,0 +1,47 @@
+# Pre-commit hooks for Things MCP
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # Ruff - Fast Python linter and formatter
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.0
+    hooks:
+      # Linting
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      # Formatting
+      - id: ruff-format
+
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.42.0
+    hooks:
+      - id: markdownlint
+        args: [--fix]
+
+  # Local hooks
+  - repo: local
+    hooks:
+      # Unit tests - fast tests that don't require Things 3 (CI/CD safe)
+      - id: unit-tests
+        name: Unit Tests (CI/CD safe)
+        entry: uv run python -m pytest tests -m "not real and not integration" -v
+        language: system
+        pass_filenames: false
+        files: ^(tests/.*\.py|src/things_mcp/.*\.py)$
+        stages: [pre-commit]
+        verbose: true
+        always_run: false
+
+      # Smoke test - runs only when Things 3 is available on the host
+      # Script checks is_things_running() and exits 0 (skip) when not available
+      - id: smoke-test
+        name: Smoke Test (Things 3 integration)
+        entry: uv run python scripts/smoke_test.py
+        language: system
+        pass_filenames: false
+        files: ^src/things_mcp/.*\.py$
+        stages: [pre-commit]
+        verbose: true
+        always_run: false
