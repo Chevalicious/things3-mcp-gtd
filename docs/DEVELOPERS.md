@@ -43,7 +43,7 @@ async def tool_name(
 ### Error Handling
 
 ```python
-from mcp.server.fastmcp import ToolError
+from fastmcp.exceptions import ToolError
 
 # Raise ToolError for operation failures
 raise ToolError("Task not found. Use get-tasks to find available tasks.")
@@ -84,7 +84,7 @@ TOOL_ANNOTATIONS = {
 
 ```bash
 git clone https://github.com/Chevalicious/things3-mcp-gtd.git
-cd mcp_things
+cd things3-mcp-gtd
 uv pip install -e .
 
 # Configure authentication token
@@ -118,13 +118,10 @@ Key variables:
 ### Running the Server
 
 ```bash
-# Production mode
+# Run the server
 uv run server
 
-# Development mode with auto-reload
-uv run dev
-
-# Alternative: MCP CLI development helper
+# Or, with the MCP CLI helper for auto-reload during development
 mcp dev src/things_mcp/things_fast_server.py
 ```
 

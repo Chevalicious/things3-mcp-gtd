@@ -10,7 +10,7 @@ This project provides a **Model Context Protocol (MCP) server** for the [Things 
 - Provide comprehensive access to Things 3 data (tasks, projects, areas, tags)
 - Deliver reliable, production-ready MCP integration with caching and error handling
 - Maintain privacy and security by operating entirely locally on macOS
-- Support both modern FastMCP and legacy MCP implementations during transition
+- Built on FastMCP 3.x exclusively (legacy MCP implementation removed in v2.0.0)
 
 ## Tech Stack
 
@@ -70,16 +70,24 @@ This project provides a **Model Context Protocol (MCP) server** for the [Things 
 
 ```
 src/things_mcp/
-├── fast_server.py       # FastMCP implementation (primary)
-├── handlers.py          # Tool handler functions with reliability features
-├── url_scheme.py        # Things URL scheme builders
-├── applescript_bridge.py # AppleScript execution layer
-├── formatters.py        # Output formatting for todos/projects/areas
-├── cache.py             # Caching decorator and utilities
-├── utils.py             # Reliability features (circuit breaker, DLQ, rate limiter)
-├── logging_config.py    # Structured logging setup
-├── tag_handler.py       # Tag creation and management
-└── config.py            # Configuration management
+├── fast_server.py        # Entry point: creates MCP server, registers all tools
+├── server_core.py        # Server factory, client-aware middleware, schema transforms
+├── client_compat.py      # Client compatibility: Accept header patches, transport middleware
+├── tool_annotations.py   # Shared TOOL_ANNOTATIONS dict
+├── tools_gtd_core.py     # GTD Engage/Capture/Clarify tools
+├── tools_gtd_organize.py # GTD Organize stage tools
+├── tools_gtd_reflect.py  # GTD Reflect stage tools
+├── tools_utility.py      # Utility tools: search, list, cache stats
+├── url_scheme.py         # Things URL scheme builders + execution (things:///)
+├── applescript_bridge.py # AppleScript execution (run_applescript())
+├── formatters.py         # Output formatting for todos/projects/areas
+├── cache.py              # @cached(ttl=seconds) decorator
+├── utils.py              # circuit_breaker, rate_limiter, app_state
+├── logging_config.py     # Structured logging with redaction
+├── oauth.py              # OAuth 2.0 authorization server (PKCE)
+├── tag_handler.py        # Auto-creates missing tags
+├── settings.py           # pydantic-settings configuration
+└── config.py             # Legacy config-file shim for scripts/configure_token.py
 ```
 
 **Key Patterns:**
