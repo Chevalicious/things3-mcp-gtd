@@ -1,103 +1,76 @@
 # Things 3 GTD MCP Server
 
-A **Model Context Protocol (MCP) server** for [Things 3](https://culturedcode.com/things/) that brings GTD (Getting Things Done) methodology to AI assistants.
+A **Model Context Protocol (MCP) server** for [Things 3](https://culturedcode.com/things/) that brings Getting Things Done (GTD) methodology to AI assistants. macOS only.
 
 [![PyPI](https://img.shields.io/pypi/v/things3-mcp-gtd)](https://pypi.org/project/things3-mcp-gtd/)
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buy-me-a-coffee)](https://buymeacoffee.com/caseyberlin)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+## What it is
+
+This server exposes Things 3 to AI assistants (Claude Desktop, Claude Code, Claude Mobile, ChatGPT, n8n, Cursor, OpenClaw) over MCP. The tools are organized around David Allen's five GTD stages — **Capture, Clarify, Organize, Reflect, Engage** — so an assistant can help you *practice GTD*, not just CRUD a task database.
+
+The shift from "database wrapper" to "GTD assistant" reflects a key insight about MCP design: **tools should match how agents think about problems**, not how the underlying APIs are structured.
+
+## Requirements
+
+| Requirement | Notes |
+|---|---|
+| **macOS** | Required. The server uses AppleScript and the Things URL scheme — neither work in Linux containers. |
+| **Things 3** | Installed, with scripting permissions enabled. |
+| **Python 3.12+** | Modern type hints and f-strings. |
+| **uv** | Recommended package manager. `pip` works too. |
 
 ## Installation
 
 ```bash
 pip install things3-mcp-gtd
-# or run directly without installing:
+# or, no install:
 uvx things3-mcp-gtd
 ```
 
-> **Note:** Review the [Privacy Notice](PRIVACY.md) and [Terms of Use](TERMS_OF_USE.md) before installation.
+For a local development install, see [docs/DEVELOPERS.md](docs/DEVELOPERS.md).
 
-## What Is This?
+> Review the [Privacy Notice](PRIVACY.md) and [Terms of Use](TERMS_OF_USE.md) before running the server.
 
-This MCP server enables AI assistants like Claude to manage your tasks in Things 3 using natural language. But more than just a task API, it's designed around David Allen's **GTD methodology** — helping you capture, clarify, organize, reflect, and engage with your work the way GTD intended.
+## Configuration
 
-### The Vision
-
-> "Your head's a crappy office." — David Allen
-
-The goal isn't to expose database operations to an AI. It's to give AI assistants the tools to help you *practice GTD* effectively:
-
-- **Capture** thoughts quickly without organizing
-- **Clarify** inbox items with GTD decision guidance
-- **Organize** tasks by context, energy, and time available
-- **Reflect** with daily and weekly reviews that surface stalled projects
-- **Engage** by finding the right task for your current context
-
-## History
-
-This project evolved through several stages:
-
-1. **[things-mcp](https://github.com/hald/things-mcp)** by Harald Lindstrøm — Original MCP implementation exposing Things 3 operations
-2. **FastMCP Migration** — Modernized to FastMCP framework with async tools, caching, and reliability features
-3. **GTD-Native Tools** — Redesigned from REST-style CRUD operations to intent-based tools aligned with GTD's five stages
-
-The shift from "database wrapper" to "GTD assistant" reflects a key insight about MCP design: **tools should match how agents think about problems**, not how APIs are structured.
-
-## Future Direction
-
-This is an evolving experiment in GTD-native AI tooling. Potential directions:
-
-- **MCP Resources** for ambient GTD state (inbox count, stalled projects)
-- **Smarter context detection** based on time, location, calendar
-- **GTD coaching** — proactive suggestions during reviews
-- **Multi-app GTD** — extending the pattern beyond Things 3
-
-Contributions and ideas welcome.
-
-## Quick Start
-
-### Prerequisites
-
-- **macOS** (required — uses AppleScript and URL schemes)
-- **Things 3** with scripting permissions enabled
-- **Python 3.12+**
-- **uv** package manager
-
-### Installation
+Copy [`.env.example`](.env.example) to `.env` and set at minimum:
 
 ```bash
-# Clone and install
-git clone https://github.com/Chevalicious/things3-mcp-gtd.git
-cd mcp_things
-uv pip install -e .
+THINGS_AUTH_TOKEN=<paste from Things -> Settings -> General -> Enable Things URLs>
+```
 
-# Configure Things 3 authentication token
+The server reads from environment variables and the `.env` file via `pydantic-settings`. All other settings (host, port, debug, auth enforcement) have sensible defaults — see `.env.example` for the full list.
+
+Alternatively, run the interactive helper:
+
+```bash
 python scripts/configure_token.py
 ```
 
-### Running
+which writes the token to `~/.things-mcp/config.json`.
+
+## Quick start
 
 ```bash
-# Production mode (binds to 127.0.0.1:8009)
+# 1. Make sure Things 3 is open
+# 2. Start the server
 uv run server
-
-# Development mode with auto-reload
-uv run dev
 ```
 
-### Client integrations
+Verify it's reachable:
 
-Step-by-step guides for connecting other products to this server:
+```bash
+bash scripts/health-check.sh
+```
 
-- [n8n](docs/integration-n8n.md) — MCP Client Tool node
-- [ChatGPT](docs/integration-chatgpt.md) — HTTPS apps and tunnels
-- [OpenClaw (Clawdbot)](docs/integration-clawdbot.md) — gateway MCP registry
-- [Publishing / approval notes](docs/integration-approval.md) — registries and checklists
-- [Agent Access](docs/agent-access.md) — LaunchAgent setup, FDA grant, ngrok tunnel, multi-agent wiring
+The server binds to `localhost:8009` by default and exposes a single MCP endpoint at `/mcp` over streamable HTTP.
 
-Compatibility details: [n8n](docs/n8n-fastmcp-compatibility.md), [ChatGPT](docs/chatgpt-fastmcp-compatibility.md).
+## Connecting an MCP client
 
-### Desktop MCP clients (stdio)
+### Claude Desktop (stdio)
 
-**Claude Desktop** — add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+`~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
@@ -110,184 +83,128 @@ Compatibility details: [n8n](docs/n8n-fastmcp-compatibility.md), [ChatGPT](docs/
 }
 ```
 
-Use the project directory as the working directory if `uv` should resolve this repo. For **OpenClaw** and remote HTTP MCP URLs, see [docs/integration-clawdbot.md](docs/integration-clawdbot.md).
+### Claude Desktop / Claude Mobile / ChatGPT (remote HTTPS)
 
-## GTD Tools
+Front the server with an HTTPS tunnel (ngrok, Cloudflare Tunnel, etc.) and point your client at `https://<your-tunnel>/mcp`. Full walkthrough: [docs/agent-access.md](docs/agent-access.md).
 
-The server provides **12 GTD-native tools** organized by methodology stage:
+### n8n / OpenClaw / Cursor
+
+See the dedicated guides:
+
+- [n8n](docs/integration-n8n.md)
+- [ChatGPT](docs/integration-chatgpt.md)
+- [OpenClaw (Clawdbot)](docs/integration-clawdbot.md)
+- [Publishing / approval notes](docs/integration-approval.md)
+
+Compatibility deep-dives: [n8n + FastMCP](docs/n8n-fastmcp-compatibility.md), [ChatGPT + FastMCP](docs/chatgpt-fastmcp-compatibility.md).
+
+## Tools
+
+13 tools organized by GTD stage:
 
 ### Capture
 
 | Tool | Purpose |
 |------|---------|
-| `capture-task` | Quick capture to Inbox without organizing |
+| `capture-task` | Quick-capture to Inbox without organizing. |
 
 ### Clarify
 
 | Tool | Purpose |
 |------|---------|
-| `process-inbox` | Process oldest inbox item with GTD decision guidance |
-| `convert-to-project` | Transform a task into a multi-step project |
+| `process-inbox` | Process the oldest inbox item with GTD decision guidance. |
+| `convert-to-project` | Transform a task into a multi-step project. |
 
 ### Organize
 
 | Tool | Purpose |
 |------|---------|
-| `schedule-task` | Create organized tasks with context, dates, projects |
-| `delegate-task` | Mark task as "Waiting For" with person and follow-up |
-| `defer-task` | Move to Someday/Maybe or schedule for future date |
-| `plan-project` | Create project with initial tasks atomically |
+| `schedule-task` | Create an organized task with context, dates, project, and tags. |
+| `delegate-task` | Mark as Waiting For with a person and follow-up. |
+| `defer-task` | Move to Someday/Maybe or schedule for a future date. |
+| `plan-project` | Create a project with initial tasks atomically. |
+| `modify-task` | Update an existing task or project. |
 
 ### Reflect
 
 | Tool | Purpose |
 |------|---------|
-| `daily-review` | Today's tasks, overdue items, inbox status |
-| `weekly-review` | Stalled projects, waiting-for items, someday review |
+| `daily-review` | Today's tasks, overdue items, and inbox status. |
+| `weekly-review` | Stalled projects, waiting-for items, someday review. |
 
 ### Engage
 
 | Tool | Purpose |
 |------|---------|
-| `get-tasks` | Context-first task retrieval (replaces 7 view tools) |
-| `focus-mode` | Get single most important task for current context |
-| `complete-task` | Mark task done by ID or fuzzy title match |
+| `get-tasks` | Context-first task retrieval (replaces every per-list view tool). |
+| `focus-mode` | Single most important task for the current context. |
+| `complete-task` | Mark done by ID or fuzzy title match. |
 
-Plus `search-tasks` for full-text and filtered search.
+### Utility
 
-### GTD Context Tags
+| Tool | Purpose |
+|------|---------|
+| `search-tasks` | Full-text and filtered search. |
+
+> **Migration note (v1.x → v2.0):** 18 legacy CRUD-style tools (`get-inbox`, `add-todo`, `update-project`, etc.) were removed in favor of the GTD-native tools above. See [CHANGELOG.md](CHANGELOG.md) for the full mapping.
+
+### GTD context tags
 
 For best results, use consistent GTD tags in Things 3:
 
 ```
-Contexts: @computer, @phone, @office, @home, @errands, @anywhere
-Energy:   high-energy, low-energy
-Time:     5min, 15min, 30min, 1hr+
-Status:   waiting-for
-People:   @person-name (for agenda items)
+Contexts:  @computer, @phone, @office, @home, @errands, @anywhere
+Energy:    high-energy, low-energy
+Time:      5min, 15min, 30min, 1hr+
+Status:    waiting-for
+People:    @person-name (for agenda items)
 ```
 
-## Repository Structure
+## Optional: 24/7 remote access
 
-| File/Directory | Purpose |
-|----------------|---------|
-| `README.md` | This file — project overview and quick start |
-| `docs/` | Documentation (DEVELOPERS.md, CLAUDE.md, MIGRATION.md, TESTING.md, compatibility + integration guides) |
-| `openspec/` | Spec-driven development framework and change proposals |
-| `src/things_mcp/` | Main source code |
-| `tests/` | Test suite (unit + integration) |
-| `scripts/` | Utility scripts (configure_token.py, run_tests.sh, etc.) |
-| `PRIVACY.md` | Privacy notice |
-| `TERMS_OF_USE.md` | Terms of use |
-| `CHANGELOG.md` | Version history |
-
-### Key Source Files
-
-```
-src/things_mcp/
-├── fast_server.py        # FastMCP server + 12 GTD tool definitions
-├── url_scheme.py         # Things URL scheme builders (write operations)
-├── applescript_bridge.py # AppleScript execution layer
-├── formatters.py         # Output formatting for responses
-├── cache.py              # @cached decorator for read operations
-├── utils.py              # Circuit breaker, rate limiter, helpers
-└── tag_handler.py        # Auto-creates missing tags
-```
-
-### OpenSpec
-
-This project uses **OpenSpec** for spec-driven development. The `openspec/` directory contains:
-
-- `project.md` — Project conventions and architecture
-- `AGENTS.md` — Instructions for AI assistants working on changes
-- `changes/` — Active and archived change proposals
-
-When planning significant changes, create a proposal in `openspec/changes/<change-id>/` with design docs and requirement specs before implementation.
+If you want the server reachable from Claude Mobile, ChatGPT, or any agent off your Mac, run it as a macOS LaunchAgent fronted by an HTTPS tunnel. End-to-end walkthrough: [docs/agent-access.md](docs/agent-access.md). Recovery procedures for the most common operational issue (a hung Apple Event subsystem): [docs/runbook-recovery.md](docs/runbook-recovery.md).
 
 ## Development
 
-For development setup, architecture details, testing, and contribution guidelines, see **[docs/DEVELOPERS.md](docs/DEVELOPERS.md)**.
-
-Quick commands:
+For setup, architecture, testing, and contributing guidelines, see [docs/DEVELOPERS.md](docs/DEVELOPERS.md).
 
 ```bash
-# Run tests (default is CI-safe: excludes Things 3 / real tests)
+# CI-safe tests (no Things 3 required)
 uv run python -m pytest tests
 
-# Run real integration tests only (Things 3 required, local/deployment)
-uv run python -m pytest tests -m real
-
 # Lint and format
-uv run ruff check . && uv run ruff format .
+uv run ruff check .
+uv run ruff format .
 ```
 
-## Agent Usage
+This project uses [OpenSpec](openspec/project.md) for spec-driven development of significant changes.
 
-The server runs as a persistent macOS LaunchAgent and is reachable by multiple agents simultaneously. Full setup: [docs/agent-access.md](docs/agent-access.md).
+## Future direction
 
-**Quick reference:**
+This is an evolving experiment in GTD-native AI tooling. Potential directions:
 
-| Client | Endpoint | Notes |
-|--------|----------|-------|
-| Claude Desktop | `https://<domain>.ngrok-free.dev/mcp` via `mcp-remote` | add `ngrok-skip-browser-warning: true` header |
-| Claude Mobile | `https://<domain>.ngrok-free.dev/mcp` | full `/mcp` path required |
-| OpenClaw (local) | `http://127.0.0.1:8009/mcp` | direct HTTP, no tunnel |
-| Hermes / Cursor | `https://<domain>.ngrok-free.dev/mcp` | remote HTTPS |
+- MCP **Resources** for ambient GTD state (inbox count, stalled projects)
+- Smarter context detection based on time, location, and calendar
+- Proactive GTD coaching during weekly reviews
+- Multi-app GTD — extending the pattern beyond Things 3
 
-**One-time macOS requirement:** grant Full Disk Access to `~/.local/bin/uv` in System Settings → Privacy & Security → Full Disk Access. Without this the LaunchAgent process cannot open the Things 3 database and all read tools fail.
-
-```bash
-# Health check
-bash scripts/health-check.sh
-
-# Restart server
-launchctl kickstart -k gui/$(id -u)/com.YOUR_USERNAME.things-mcp-server
-```
+Contributions and ideas welcome.
 
 ## Credits
 
-- **[Harald Lindstrøm](https://github.com/hald)** — Original things-mcp
-- **[Jonathan Lowin](https://github.com/jlowin)** — FastMCP framework
+- **[Harald Lindstrøm](https://github.com/hald)** — original [things-mcp](https://github.com/hald/things-mcp)
+- **[Jonathan Lowin](https://github.com/jlowin)** — [FastMCP](https://gofastmcp.com)
 - **[things.py](https://github.com/thingsapi/things.py)** — Things 3 Python library
 - **[David Allen](https://gettingthingsdone.com/)** — GTD methodology
 - **[Cultured Code](https://culturedcode.com)** — Things 3
 
 ## License
 
-MIT License — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).
 
 ## Links
 
 - [GitHub Issues](https://github.com/Chevalicious/things3-mcp-gtd/issues)
-- [FastMCP Documentation](https://gofastmcp.com)
-- [Things 3 URL Scheme](https://culturedcode.com/things/support/articles/2803573/)
-- [GTD Methodology](https://gettingthingsdone.com/)
-
----
-
-## Removed Tools
-
-The following legacy CRUD-style tools have been removed in favor of GTD-native tools. If you were using these tools, update your code to use the replacements below:
-
-| Removed Tool | Replacement |
-|--------------|-------------|
-| `get-inbox` | `get-tasks(list_filter="inbox")` |
-| `get-today` | `get-tasks(list_filter="today")` |
-| `get-upcoming` | `get-tasks(list_filter="upcoming")` |
-| `get-anytime` | `get-tasks(list_filter="anytime")` |
-| `get-someday` | `get-tasks(list_filter="someday")` |
-| `get-logbook` | `get-tasks(list_filter="logbook")` |
-| `get-trash` | `get-tasks(list_filter="trash")` |
-| `get-todos` | `get-tasks()` |
-| `get-tagged-items` | `get-tasks(tag="tag-name")` |
-| `get-recent` | `get-tasks(list_filter="logbook")` |
-| `search-todos` | `search-tasks` |
-| `search-advanced` | `search-tasks` |
-| `search-items` | `search-tasks` |
-| `add-todo` | `capture-task` or `schedule-task` |
-| `add-project` | `plan-project` |
-| `update-todo` | `modify-task` |
-| `update-project` | `modify-task` |
-| `show-item` | `show-in-app` |
-
-**Why?** The GTD-native tools are designed around how you actually work with tasks, not database operations. Instead of "add a todo", you "capture a thought" or "schedule a task with context". This matches how AI assistants naturally think about task management.
+- [Changelog](CHANGELOG.md)
+- [Things URL Scheme reference](https://culturedcode.com/things/support/articles/2803573/)
+- [GTD methodology](https://gettingthingsdone.com/)
