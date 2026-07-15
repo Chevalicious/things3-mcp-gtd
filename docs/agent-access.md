@@ -69,19 +69,79 @@ Then load the agent:
 launchctl load ~/Library/LaunchAgents/com.things-mcp-server.plist
 ```
 
-### 3. Grant Full Disk Access to `uv` (one-time, survives reboots)
+### 3. Grant macOS permissions to the exact python binary (one-time, survives reboots)
 
 LaunchAgent processes run in a restricted macOS context and cannot read
 `~/Library/Group Containers/` (where Things 3 stores its database) without
-explicit TCC permission. The `uv` binary is the direct child of `launchd` and
-must be granted Full Disk Access so the permission propagates to the Python
-subprocess it spawns.
+explicit TCC permission. macOS attaches permission grants to the **exact
+executable that launchd runs** — with the recommended plist template that is
+the resolved venv python binary, not `uv`. (Earlier versions of this doc said
+to grant `uv`; that was only correct for a `uv run` launch style.)
 
-**System Settings → Privacy & Security → Full Disk Access → click `+` →
-navigate to `~/.local/bin/uv` → Open → toggle ON.**
+Two grants are required, and both must go to the same binary.
 
-Without this, all read tools (`get-tasks`, `daily-review`, etc.) will fail
-with `unable to open database file`.
+**3a. Resolve the real binary** (the venv path is a symlink):
+
+```bash
+readlink -f /path/to/things3-mcp-gtd/.venv/bin/python
+# e.g. ~/.local/share/uv/python/cpython-3.13.11-macos-aarch64-none/bin/python3.13
+```
+
+**3b. Full Disk Access** (covers the Things database read; macOS never
+prompts for this — it must be added manually):
+
+```bash
+open -R "$(readlink -f /path/to/things3-mcp-gtd/.venv/bin/python)"   # reveal in Finder
+open "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"
+```
+
+Drag the revealed python binary into the Full Disk Access list and toggle it
+ON. Without this, read tools (`get-tasks`, `daily-review`, etc.) fail with
+`unable to open database file`. Do NOT rely on the per-app "App Data" consent
+popup instead — it can record a session-only grant that silently expires and
+re-prompts later.
+
+**3c. Automation (Apple Events) grant for Things 3** (needed by
+AppleScript-backed tools: tag creation, areas, deletion). The server's
+AppleScript bridge kills osascript after 10 s — too short for a human to
+answer the consent popup, so triggering it through a tool call usually dies
+unanswered and can even record a **denial**. Trigger the prompt with a long
+timeout via a one-shot LaunchAgent that uses the same executable identity as
+the server:
+
+```bash
+# probe script: send one read-only Apple Event, wait up to 5 min for the click
+cat > /tmp/tcc_grant_probe.py <<'EOF'
+import subprocess
+subprocess.run(["osascript", "-e",
+    'tell application "Things3" to count of to dos of list "Inbox"'], timeout=300)
+EOF
+# run it under launchd with the SAME python the server uses (temp plist,
+# ProgramArguments: [/path/to/.venv/bin/python, /tmp/tcc_grant_probe.py], RunAtLoad: true)
+launchctl bootstrap "gui/$(id -u)" /tmp/com.you.things-tcc-grant.plist
+# → click "Allow" on the "python wants access to control Things3" popup
+launchctl bootout "gui/$(id -u)/com.you.things-tcc-grant"
+```
+
+**3d. Record the granted binary** in the server plist's
+`THINGS_MCP_GRANTED_PYTHON` env var (see the plist template) so you can tell
+later which binary holds the grants.
+
+**⚠️ Re-grant rule:** rebuilding the venv, upgrading the uv-managed python,
+or changing the LaunchAgent launch style swaps the executable identity and
+**silently orphans every grant** — the symptom is `unable to open database
+file` returning and AppleScript calls hanging. After any such change, redo
+3a–3d. Pinning an exact version in `.python-version` (e.g. `3.13.11`, not
+`3.13`) prevents accidental swaps.
+
+**⚠️ If AppleScript-backed tools hang** even though the grant exists
+(verify: `sqlite3 "$HOME/Library/Application Support/com.apple.TCC/TCC.db"
+"SELECT client, auth_value FROM access WHERE
+service='kTCCServiceAppleEvents' AND
+indirect_object_identifier='com.culturedcode.ThingsMac';"` shows your python
+with auth_value `2`), the Things app's own Apple Event queue is wedged —
+restart the Things 3 app (`killall Things3 && open -ga Things3`), not the
+MCP server.
 
 ### 4. Set up ngrok (for remote agent access)
 

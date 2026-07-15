@@ -13,6 +13,19 @@
            ~/Library/LaunchAgents/com.things-mcp-server.plist
        and load it with:
            launchctl load ~/Library/LaunchAgents/com.things-mcp-server.plist
+
+  Launch style: this template launches the venv's python DIRECTLY (not via
+  `uv run`). macOS TCC attaches Full Disk Access / Automation grants to the
+  launchd job's executable, so launching python directly gives the grants a
+  stable, predictable identity. Launching via `uv run` attaches them to `uv`
+  instead, and switching launch styles later orphans every grant.
+
+  Resolve the real binary behind .venv/bin/python (it is a symlink):
+      readlink -f /Users/YOUR_USERNAME/path/to/things3-mcp-gtd/.venv/bin/python
+  Grant Full Disk Access + Automation (Things3) to THAT binary — see
+  docs/agent-access.md §3 — and record it in THINGS_MCP_GRANTED_PYTHON below
+  so you can tell when a venv rebuild or python upgrade has swapped the
+  binary and orphaned the grants.
 -->
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -21,9 +34,9 @@
   <string>com.things-mcp-server</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/Users/YOUR_USERNAME/.local/bin/uv</string>
-    <string>run</string>
-    <string>server</string>
+    <string>/Users/YOUR_USERNAME/path/to/things3-mcp-gtd/.venv/bin/python</string>
+    <string>-m</string>
+    <string>things_mcp.things_fast_server</string>
   </array>
   <key>WorkingDirectory</key>
   <string>/Users/YOUR_USERNAME/path/to/things3-mcp-gtd</string>
@@ -37,6 +50,8 @@
     <string>YOUR_USERNAME</string>
     <key>THINGSDB</key>
     <string>/Users/YOUR_USERNAME/Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac/ThingsData-YOUR_THINGS_DATA_ID/Things Database.thingsdatabase/main.sqlite</string>
+    <key>THINGS_MCP_GRANTED_PYTHON</key>
+    <string>/Users/YOUR_USERNAME/.local/share/uv/python/cpython-3.13.X-macos-aarch64-none/bin/python3.13</string>
   </dict>
   <key>RunAtLoad</key>
   <true/>
