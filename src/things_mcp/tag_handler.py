@@ -62,7 +62,9 @@ def ensure_tags_exist(tags: List[str]) -> bool:
         # Note: 'without activating' will be automatically added by run_applescript()
         result = run_applescript(script)
 
-        if not result:
+        # run_applescript returns stdout ("" for scripts with no return value)
+        # on success and False on failure — only False means the call failed.
+        if result is False:
             logger.error("Failed to ensure tags exist")
             return False
 
