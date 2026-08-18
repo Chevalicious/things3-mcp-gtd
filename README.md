@@ -1,3 +1,5 @@
+
+
 # Things 3 GTD MCP Server
 
 A **Model Context Protocol (MCP) server** for [Things 3](https://culturedcode.com/things/) that brings Getting Things Done (GTD) methodology to AI assistants. macOS only.
@@ -55,8 +57,10 @@ which writes the token to `~/.things-mcp/config.json`.
 Make sure Things 3 is open, then:
 
 ```bash
-# If installed via pip or uvx
+# If installed via pip
 things3-mcp-gtd
+# If using uvx without installing
+uvx things3-mcp-gtd
 
 # If running from source
 uv run server
