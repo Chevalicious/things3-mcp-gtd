@@ -1,224 +1,180 @@
-# Things 3 GTD MCP Server
+# Things 3 MCP
 
-A **Model Context Protocol (MCP) server** for [Things 3](https://culturedcode.com/things/) that brings Getting Things Done (GTD) methodology to AI assistants. macOS only.
+Connect an MCP client to Things 3 on your Mac. Find tasks, capture to-dos, edit schedules and checklists, plan projects, and review what's coming up. Use the lists and tags you already have.
 
-[![PyPI](https://img.shields.io/pypi/v/things3-mcp-gtd)](https://pypi.org/project/things3-mcp-gtd/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+Everything runs locally: reads come from the Things database in read-only mode, writes go through the official Things URL scheme, and nothing is sent anywhere except to the MCP client you connect. Unofficial; not affiliated with Cultured Code.
 
-## What it is
+## Agent Usage
 
-This server exposes Things 3 to AI assistants (Claude Desktop, Claude Code, Claude Mobile, ChatGPT, n8n, Cursor, OpenClaw) over MCP. The tools are organized around David Allen's five GTD stages — **Capture, Clarify, Organize, Reflect, Engage** — so an assistant can help you *practice GTD*, not just CRUD a task database.
+### 1. Requirements
 
-The shift from "database wrapper" to "GTD assistant" reflects a key insight about MCP design: **tools should match how agents think about problems**, not how the underlying APIs are structured.
+- A Mac with Things 3, opened at least once under the macOS account that will run the server
+- An MCP client on the same Mac
+- [uv](https://docs.astral.sh/uv/getting-started/installation/), or Python 3.12 or newer
 
-## Requirements
+### 2. Install
 
-| Requirement | Notes |
-|---|---|
-| **macOS** | Required. The server uses AppleScript and the Things URL scheme — neither work in Linux containers. |
-| **Things 3** | Installed, with scripting permissions enabled. |
-| **Python 3.12+** | Modern type hints and f-strings. |
-| **uv** | Recommended package manager. `pip` works too. |
-
-## Installation
-
-```bash
-pip install things3-mcp-gtd
-# or, no install:
-uvx things3-mcp-gtd
+```sh
+uv tool install things3-mcp-gtd
 ```
 
-For a local development install, see [docs/DEVELOPERS.md](docs/DEVELOPERS.md).
-
-> Review the [Privacy Notice](PRIVACY.md) and [Terms of Use](TERMS_OF_USE.md) before running the server.
-
-## Configuration
-
-Copy [`.env.example`](.env.example) to `.env` and set at minimum:
-
-```bash
-THINGS_AUTH_TOKEN=<paste from Things -> Settings -> General -> Enable Things URLs>
+```sh
+command -v things3-mcp
 ```
 
-The server reads from environment variables and the `.env` file via `pydantic-settings`. All other settings (host, port, debug, auth enforcement) have sensible defaults — see `.env.example` for the full list.
+Copy the absolute path the second command prints. GUI apps often have a different `PATH` than Terminal, so clients need the full path. The older `things3-mcp-gtd` command is still installed and behaves the same.
 
-Alternatively, run the interactive helper:
+### 3. Add the server to your client (read-only)
 
-```bash
-python scripts/configure_token.py
-```
-
-which writes the token to `~/.things-mcp/config.json`.
-
-## Quick start
-
-Make sure Things 3 is open, then:
-
-```bash
-# If installed via pip or uvx
-things3-mcp-gtd
-
-# If running from source
-uv run server
-```
-
-The server binds to `localhost:8009` by default with a single MCP endpoint at `/mcp` over streamable HTTP.
-
-## Connecting an MCP client
-
-### Claude Desktop (stdio)
-
-`~/Library/Application Support/Claude/claude_desktop_config.json`:
-
-**If installed via pip:**
+Add a **stdio** server in your client's MCP settings. For clients that use an `mcpServers` JSON object:
 
 ```json
 {
   "mcpServers": {
-    "things3-gtd": {
-      "command": "things3-mcp-gtd"
+    "things": {
+      "command": "/absolute/path/to/things3-mcp",
+      "args": ["--transport", "stdio"],
+      "env": { "THINGS_MCP_READ_ONLY": "true" }
     }
   }
 }
 ```
 
-**If running from source:**
+Restart or reload the client.
 
-```json
-{
-  "mcpServers": {
-    "things3-gtd": {
-      "command": "uv",
-      "args": ["run", "server"]
-    }
-  }
-}
+### 4. Verify
+
+1. Call `get-cache-stats`. A reply means the client reached the server.
+2. Call `get-tasks` with `{"view":"today"}`. A task list means the server can read Things.
+
+If the second call fails, see [Permissions](#permissions).
+
+### 5. Enable writes (optional)
+
+1. In Things, open **Settings → General** and turn on **Enable Things URLs**. Do this before the next step; otherwise Things asks the first time it receives a URL.
+2. Remove `THINGS_MCP_READ_ONLY` from the server's `env` and reload the client. Creating to-dos and projects now works.
+3. To change existing items (complete, move, reschedule, edit), click **Manage** next to Enable Things URLs, copy the token, and add it as `THINGS_AUTH_TOKEN` in the server's `env`. Keep it out of prompts and source control.
+
+## Permissions
+
+The server asks for as little as it can, and each grant is made once.
+
+| What you do | What it needs | Where you grant it |
+| --- | --- | --- |
+| Read tasks | Access to the Things app container for the app that launches the server | macOS prompt on first read |
+| Create to-dos and projects | Things URLs enabled | Things → Settings → General |
+| Change existing items | `THINGS_AUTH_TOKEN` | Server environment |
+| Create missing tags (off by default) | macOS Automation permission to control Things | macOS prompt on first use |
+
+To keep macOS from asking again, keep using the same client and the same installed `things3-mcp` path. macOS ties its grants to the launching app, so a different client, terminal, or reinstalled path may be asked once more. If reads fail, check that launcher's permission in **System Settings → Privacy & Security**.
+
+The server never needs Accessibility access, and it doesn't start or probe Things when it launches. Routine reads, writes, and use of existing tags don't use AppleScript.
+
+If a tool reports an unknown tag, create it in **Things → Window → Tags** and retry. This includes the `waiting-for` tag used by `delegate-task`. To let the server create tags instead, set `THINGS_MCP_ALLOW_TAG_CREATION=true`; this is the only feature that uses AppleScript and may trigger the [Automation prompt](https://support.apple.com/guide/mac-help/mchl108e1718/mac).
+
+## Settings
+
+Set these in your client's `env` block, or in an owner-only `.env` file in the server's working directory. See [.env.example](.env.example).
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `THINGS_MCP_READ_ONLY` | `false` | Hide and block every tool that writes or opens Things |
+| `THINGS_AUTH_TOKEN` | unset | Things URL token; required only to change existing items |
+| `THINGS_MCP_ALLOW_TAG_CREATION` | `false` | Create missing tags through AppleScript |
+| `THINGS_MCP_TRANSPORT` | `streamable-http` | `stdio` or `streamable-http`; `--transport` overrides it |
+| `THINGS_MCP_HOST` | `127.0.0.1` | HTTP bind address; loopback only |
+| `THINGS_MCP_PORT` | `8009` | HTTP port |
+| `THINGS_MCP_HTTP_TOKEN` | unset | Bearer credential for the HTTP endpoint (32+ characters) |
+| `THINGS_MCP_REQUIRE_AUTH` | `false` | Refuse to start HTTP without `THINGS_MCP_HTTP_TOKEN` |
+| `THINGS_MCP_DEBUG` | `false` | Verbose logging to stderr |
+
+## Local HTTP instead of stdio
+
+If your client takes a URL instead of a command, start the server yourself:
+
+```sh
+THINGS_MCP_READ_ONLY=true things3-mcp --transport streamable-http
 ```
 
-### Claude Desktop / Claude Mobile / ChatGPT (remote HTTPS)
+Set the client endpoint to `http://127.0.0.1:8009/mcp`. The server listens on loopback only and rejects browser origins and foreign `Host` headers.
 
-Front the server with an HTTPS tunnel (ngrok, Cloudflare Tunnel, etc.) and point your client at `https://<your-tunnel>/mcp`. Full walkthrough: [docs/agent-access.md](docs/agent-access.md).
+On a shared Mac, generate a credential with `openssl rand -hex 32`, set it as `THINGS_MCP_HTTP_TOKEN` in the server environment, and send it from your client as an `Authorization: Bearer …` header. Never reuse your Things URL token as the HTTP credential.
 
-### n8n / OpenClaw / Cursor
-
-See the dedicated guides:
-
-- [n8n](docs/integration-n8n.md)
-- [ChatGPT](docs/integration-chatgpt.md)
-- [OpenClaw (Clawdbot)](docs/integration-clawdbot.md)
-- [Publishing / approval notes](docs/integration-approval.md)
-
-Compatibility deep-dives: [n8n + FastMCP](docs/n8n-fastmcp-compatibility.md), [ChatGPT + FastMCP](docs/chatgpt-fastmcp-compatibility.md).
+This release supports desktop and local clients. It doesn't provide OAuth, public URLs, browser-origin access, or a hosted connector.
 
 ## Tools
 
-19 GTD-native tools organized by stage:
+| What you want to do | Tools |
+| --- | --- |
+| Find tasks or choose what to work on | `get-tasks`, `search-tasks`, `focus-mode`, `process-inbox` |
+| Browse lists and tags | `get-projects`, `get-areas`, `get-tags` |
+| Create | `capture-task`, `capture-tasks`, `schedule-task` |
+| Change an existing to-do | `modify-task`, `move-task`, `complete-task`, `defer-task`, `delegate-task` |
+| Plan a project | `plan-project`, `convert-to-project` |
+| Review activity | `daily-review`, `weekly-review` |
+| Open Things or check the connection | `show-in-app`, `get-cache-stats` |
 
-### Capture
+### Read task details
 
-| Tool | Purpose |
-|------|---------|
-| `capture-task` | Quick-capture to Inbox without organizing. |
+`get-tasks`, `search-tasks`, `focus-mode`, and `process-inbox` return compact rows by default: task ID, status, dates, and destination, including heading IDs. Set `include_details` to `true` for notes, tags, native checklist rows, and a local Things link.
 
-### Clarify
-
-| Tool | Purpose |
-|------|---------|
-| `process-inbox` | Process the oldest inbox item with GTD decision guidance. |
-| `convert-to-project` | Transform a task into a multi-step project. |
-
-### Organize
-
-| Tool | Purpose |
-|------|---------|
-| `schedule-task` | Create an organized task with context, dates, project, and tags. |
-| `delegate-task` | Mark as Waiting For with a person and follow-up. |
-| `defer-task` | Move to Someday/Maybe or schedule for a future date. |
-| `plan-project` | Create a project with initial tasks atomically. |
-| `modify-task` | Update an existing task or project. |
-
-### Reflect
-
-| Tool | Purpose |
-|------|---------|
-| `daily-review` | Today's tasks, overdue items, and inbox status. |
-| `weekly-review` | Stalled projects, waiting-for items, someday review. |
-
-### Engage
-
-| Tool | Purpose |
-|------|---------|
-| `get-tasks` | Context-first task retrieval (replaces every per-list view tool). |
-| `focus-mode` | Single most important task for the current context. |
-| `complete-task` | Mark done by ID or fuzzy title match. |
-
-### Utility
-
-| Tool | Purpose |
-|------|---------|
-| `search-tasks` | Full-text and filtered search. |
-| `get-projects` | List all projects. |
-| `get-areas` | List all areas of responsibility. |
-| `get-tags` | List all tags. |
-| `show-in-app` | Open a task or project in Things 3. |
-| `get-cache-stats` | Cache performance statistics (debugging). |
-
-### GTD context tags
-
-For best results, use consistent GTD tags in Things 3:
-
-```
-Contexts:  @computer, @phone, @office, @home, @errands, @anywhere
-Energy:    high-energy, low-energy
-Time:      5min, 15min, 30min, 1hr+
-Status:    waiting-for
-People:    @person-name (for agenda items)
+```json
+{"query":"venue deposit","include_details":true}
 ```
 
-## Optional: 24/7 remote access
+Search matches notes in either mode.
 
-If you want the server reachable from Claude Mobile, ChatGPT, or any agent off your Mac, run it as a macOS LaunchAgent fronted by an HTTPS tunnel. End-to-end walkthrough: [docs/agent-access.md](docs/agent-access.md). Recovery procedures for the most common operational issue (a hung Apple Event subsystem): [docs/runbook-recovery.md](docs/runbook-recovery.md).
+### Capture a small Inbox batch
 
-## Development
+Call `capture-tasks` with a `tasks` array of up to 10 rows. Each row takes a single-line title, optional notes, and optional existing tag names.
 
-For setup, architecture, testing, and contributing guidelines, see [docs/DEVELOPERS.md](docs/DEVELOPERS.md).
-
-```bash
-# CI-safe tests (no Things 3 required)
-uv run python -m pytest tests
-
-# Lint and format
-uv run ruff check .
-uv run ruff format .
+```json
+{"tasks":[{"title":"Call the venue","notes":"Ask about Friday availability."},{"title":"Print the agenda"}]}
 ```
 
-This project uses [OpenSpec](openspec/project.md) for spec-driven development of significant changes.
+The whole batch is checked before anything is sent; fix any reported row and submit again. After sending, each row is reported as confirmed with its new ID, or unconfirmed. The server sends a batch once and never replays it, so check Things before retrying an unconfirmed row.
 
-## Future direction
+### Schedule with a formatted note and checklist
 
-This is an evolving experiment in GTD-native AI tooling. Potential directions:
+```json
+{
+  "title": "Prepare for the site visit",
+  "when": "tomorrow@09:00",
+  "notes": "## Visit notes\n- **Bring ID**\n- Read the *visitor guide*: https://example.com/visitors",
+  "checklist": ["Confirm arrival time", "Print directions"]
+}
+```
 
-- MCP **Resources** for ambient GTD state (inbox count, stalled projects)
-- Smarter context detection based on time, location, and calendar
-- Proactive GTD coaching during weekly reviews
-- Multi-app GTD — extending the pattern beyond Things 3
+`when` takes the native Things schedule string. Use `checklist` for native checklist rows; a Markdown checkbox stays in the note as text. Things ignores a time for `anytime` and `someday`, and Things URLs can't reschedule a repeating to-do. See the [Things Markdown guide](https://culturedcode.com/things/support/articles/4651820/) and [Things URL scheme](https://culturedcode.com/things/support/articles/2803573/) for supported formats.
 
-Contributions and ideas welcome.
+### Move a to-do
 
-## Credits
+Call `move-task` with `task_id` and `destination_id` to file an existing to-do without making a copy. Get the task ID from `get-tasks` or `search-tasks`, project and heading IDs from `get-projects` with `{"include_items":true}`, and area IDs from `get-areas`. A project ID files the to-do at the top of the project; a heading ID files it under that heading.
 
-- **[Jonathan Lowin](https://github.com/jlowin)** — [FastMCP](https://gofastmcp.com)
-- **[things.py](https://github.com/thingsapi/things.py)** — Things 3 Python library
-- **[David Allen](https://gettingthingsdone.com/)** — GTD methodology
-- **[Cultured Code](https://culturedcode.com)** — Things 3
+### How writes are confirmed
 
-## License
+Things URLs don't report back, so after a write the server reads the local database briefly to confirm it.
 
-MIT — see [LICENSE](LICENSE).
+- Captures, scheduled to-dos, and new projects return the new ID when exactly one matching new item appears.
+- Moves and completions return the existing ID once the requested state is visible.
+- `convert-to-project` cancels the original only after it sees the new project.
+- `modify-task`, `defer-task`, and `delegate-task` report that the request was submitted; open the task to verify.
 
-## Links
+If a response says a write was submitted but not confirmed, check Things before retrying. Things can ignore unsupported fields or take longer than the confirmation window.
 
-- [GitHub Issues](https://github.com/Chevalicious/things3-mcp-gtd/issues)
-- [Changelog](CHANGELOG.md)
-- [Things URL Scheme reference](https://culturedcode.com/things/support/articles/2803573/)
-- [GTD methodology](https://gettingthingsdone.com/)
+## Privacy
+
+The server has no telemetry and writes no log file. Task titles, notes, and destinations returned by tools go to your MCP client; if that client uses a remote AI service, the service can receive them. Compact results still include titles and destinations. See [Privacy](PRIVACY.md) and [Terms of Use](TERMS_OF_USE.md).
+
+Reads use [things.py](https://github.com/thingsapi/things.py) against the Things SQLite database in read-only mode. This relies on Things' private database format and may need an update after a Things release. Writes never touch SQL.
+
+## Upgrading from 1.x
+
+- Tunnel, LAN, and OAuth setups are gone. Stop those deployments and move clients to stdio or local HTTP. If you exposed the old OAuth endpoints, rotate your Things URL token in Things.
+- Tag creation is now off by default. Create tags in Things, or set `THINGS_MCP_ALLOW_TAG_CREATION=true`.
+- Task lists are compact by default. Pass `include_details: true` for notes, tags, and checklists.
+- Tool names and arguments from 1.x still work.
+
+---
+
+[Development and testing](docs/DEVELOPERS.md) · [Changelog](CHANGELOG.md) · [MIT License](LICENSE)

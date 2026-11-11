@@ -15,7 +15,7 @@ class TestFormatTodo:
         from things_mcp.formatters import format_todo
 
         todo = {"title": "Buy milk", "uuid": "abc-123", "type": "to-do"}
-        result = format_todo(todo)
+        result = format_todo(todo, include_details=True)
 
         assert "Title: Buy milk" in result
         assert "UUID: abc-123" in result
@@ -31,7 +31,7 @@ class TestFormatTodo:
             "type": "to-do",
             "status": "completed",
         }
-        result = format_todo(todo)
+        result = format_todo(todo, include_details=True)
         assert "Status: completed" in result
 
     def test_todo_without_status(self):
@@ -39,7 +39,7 @@ class TestFormatTodo:
         from things_mcp.formatters import format_todo
 
         todo = {"title": "Task", "uuid": "u1", "type": "to-do", "status": ""}
-        result = format_todo(todo)
+        result = format_todo(todo, include_details=True)
         assert "Status:" not in result
 
     def test_todo_with_dates(self):
@@ -54,7 +54,7 @@ class TestFormatTodo:
             "deadline": "2026-03-15",
             "stop_date": "2026-03-10",
         }
-        result = format_todo(todo)
+        result = format_todo(todo, include_details=True)
 
         assert "Start Date: 2026-03-01" in result
         assert "Deadline: 2026-03-15" in result
@@ -65,7 +65,7 @@ class TestFormatTodo:
         from things_mcp.formatters import format_todo
 
         todo = {"title": "Task", "uuid": "u1", "type": "to-do"}
-        result = format_todo(todo)
+        result = format_todo(todo, include_details=True)
 
         assert "Start Date:" not in result
         assert "Deadline:" not in result
@@ -81,7 +81,7 @@ class TestFormatTodo:
             "type": "to-do",
             "notes": "Some important notes",
         }
-        result = format_todo(todo)
+        result = format_todo(todo, include_details=True)
         assert "Notes: Some important notes" in result
 
     def test_todo_with_start_list(self):
@@ -94,7 +94,7 @@ class TestFormatTodo:
             "type": "to-do",
             "start": "today",
         }
-        result = format_todo(todo)
+        result = format_todo(todo, include_details=True)
         assert "List: today" in result
 
     def test_todo_with_tags(self):
@@ -107,7 +107,7 @@ class TestFormatTodo:
             "type": "to-do",
             "tags": ["urgent", "work", "meeting"],
         }
-        result = format_todo(todo)
+        result = format_todo(todo, include_details=True)
         assert "Tags: urgent, work, meeting" in result
 
     def test_todo_with_empty_tags(self):
@@ -115,7 +115,7 @@ class TestFormatTodo:
         from things_mcp.formatters import format_todo
 
         todo = {"title": "Task", "uuid": "u1", "type": "to-do", "tags": []}
-        result = format_todo(todo)
+        result = format_todo(todo, include_details=True)
         assert "Tags:" not in result
 
     def test_todo_with_checklist(self):
@@ -131,7 +131,7 @@ class TestFormatTodo:
                 {"title": "Step 2", "status": "open"},
             ],
         }
-        result = format_todo(todo)
+        result = format_todo(todo, include_details=True)
 
         assert "Checklist:" in result
         assert "\u2713 Step 1" in result
@@ -142,7 +142,7 @@ class TestFormatTodo:
         from things_mcp.formatters import format_todo
 
         todo = {"title": "Task", "uuid": "u1", "type": "to-do", "checklist": []}
-        result = format_todo(todo)
+        result = format_todo(todo, include_details=True)
         # Code adds "Checklist:" header for any list (even empty)
         assert "Checklist:" in result
         # But no items follow
@@ -157,73 +157,29 @@ class TestFormatTodo:
         from things_mcp.formatters import format_todo
 
         todo = {"title": "Task", "uuid": "u1", "type": "to-do"}
-        result = format_todo(todo)
+        result = format_todo(todo, include_details=True)
         assert "Checklist:" not in result
 
-    def test_todo_with_project_lookup(self):
-        """Project name is resolved via things.get()."""
+    def test_todo_uses_joined_destinations_without_lookups(self):
         from things_mcp.formatters import format_todo
 
         todo = {
             "title": "Task",
             "uuid": "u1",
             "type": "to-do",
-            "project": "proj-uuid-123",
+            "project": "proj-id",
+            "project_title": "My Project",
+            "area": "area-id",
+            "heading": "heading-id",
+            "heading_title": "Prep",
         }
         with patch("things_mcp.formatters.things") as mock_things:
-            mock_things.get.return_value = {"title": "My Project"}
             result = format_todo(todo)
 
         assert "Project: My Project" in result
-        mock_things.get.assert_called_once_with("proj-uuid-123")
-
-    def test_todo_project_lookup_failure(self):
-        """Project lookup failure is silently handled."""
-        from things_mcp.formatters import format_todo
-
-        todo = {
-            "title": "Task",
-            "uuid": "u1",
-            "type": "to-do",
-            "project": "bad-uuid",
-        }
-        with patch("things_mcp.formatters.things") as mock_things:
-            mock_things.get.side_effect = Exception("DB error")
-            result = format_todo(todo)
-
-        assert "Project:" not in result
-
-    def test_todo_with_area_lookup(self):
-        """Area name is resolved via things.get()."""
-        from things_mcp.formatters import format_todo
-
-        todo = {
-            "title": "Task",
-            "uuid": "u1",
-            "type": "to-do",
-            "area": "area-uuid-456",
-        }
-        with patch("things_mcp.formatters.things") as mock_things:
-            mock_things.get.return_value = {"title": "Personal"}
-            result = format_todo(todo)
-
-        assert "Area: Personal" in result
-
-    def test_todo_area_lookup_returns_none(self):
-        """Area lookup returning None is handled gracefully."""
-        from things_mcp.formatters import format_todo
-
-        todo = {
-            "title": "Task",
-            "uuid": "u1",
-            "type": "to-do",
-            "area": "missing-uuid",
-        }
-        with patch("things_mcp.formatters.things") as mock_things:
-            mock_things.get.return_value = None
-            result = format_todo(todo)
-
-        assert "Area:" not in result
+        assert "Area: area-id" in result
+        assert "Heading: Prep (ID: heading-id)" in result
+        mock_things.get.assert_not_called()
 
 
 class TestFormatProject:
@@ -240,26 +196,30 @@ class TestFormatProject:
         assert "Title: Website Redesign" in result
         assert "UUID: proj-1" in result
 
-    def test_project_with_notes(self):
-        """Project notes are included."""
+    def test_project_omits_notes(self):
         from things_mcp.formatters import format_project
 
         project = {"title": "Proj", "uuid": "p1", "notes": "Important project"}
         with patch("things_mcp.formatters.things"):
             result = format_project(project)
 
-        assert "Notes: Important project" in result
+        assert "Important project" not in result
 
     def test_project_with_area(self):
         """Area is resolved for projects."""
         from things_mcp.formatters import format_project
 
-        project = {"title": "Proj", "uuid": "p1", "area": "area-1"}
+        project = {
+            "title": "Proj",
+            "uuid": "p1",
+            "area": "area-1",
+            "area_title": "Work",
+        }
         with patch("things_mcp.formatters.things") as mock_things:
-            mock_things.get.return_value = {"title": "Work"}
             result = format_project(project)
 
         assert "Area: Work" in result
+        mock_things.get.assert_not_called()
 
     def test_project_include_items(self):
         """include_items=True lists todo titles."""
@@ -267,15 +227,17 @@ class TestFormatProject:
 
         project = {"title": "Proj", "uuid": "p1"}
         with patch("things_mcp.formatters.things") as mock_things:
-            mock_things.todos.return_value = [
-                {"title": "Task A"},
-                {"title": "Task B"},
+            mock_things.tasks.return_value = [
+                {"title": "Prep", "uuid": "heading-1", "type": "heading"},
+                {"title": "Task A", "type": "to-do"},
+                {"title": "Task B", "type": "to-do"},
             ]
             result = format_project(project, include_items=True)
 
         assert "Tasks:" in result
         assert "- Task A" in result
         assert "- Task B" in result
+        assert "Prep (ID: `heading-1`)" in result
 
     def test_project_include_items_empty(self):
         """No Tasks section when project has no todos."""
@@ -283,7 +245,7 @@ class TestFormatProject:
 
         project = {"title": "Proj", "uuid": "p1"}
         with patch("things_mcp.formatters.things") as mock_things:
-            mock_things.todos.return_value = []
+            mock_things.tasks.return_value = []
             result = format_project(project, include_items=True)
 
         assert "Tasks:" not in result
@@ -303,14 +265,14 @@ class TestFormatArea:
         assert "Title: Personal" in result
         assert "UUID: area-1" in result
 
-    def test_area_with_notes(self):
+    def test_area_omits_notes(self):
         from things_mcp.formatters import format_area
 
         area = {"title": "Work", "uuid": "a1", "notes": "All work stuff"}
         with patch("things_mcp.formatters.things"):
             result = format_area(area)
 
-        assert "Notes: All work stuff" in result
+        assert "All work stuff" not in result
 
     def test_area_include_items(self):
         """include_items lists both projects and todos."""

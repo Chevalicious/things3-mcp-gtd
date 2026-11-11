@@ -8,7 +8,7 @@ Settings are loaded once and cached for the lifetime of the application.
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     Settings are loaded from (in order of priority):
     1. Environment variables
-    2. .env file in the project root
+    2. .env file in the server's working directory
     3. Default values defined here
 
     Environment variables use the same names as the fields (case-insensitive).
@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        extra="ignore",  # Ignore extra fields (useful for n8n compatibility)
+        extra="ignore",
         case_sensitive=False,
     )
 
@@ -41,9 +41,9 @@ class Settings(BaseSettings):
         le=65535,
         description="Port for the MCP server to listen on",
     )
-    things_mcp_transport: Literal["streamable-http"] = Field(
+    things_mcp_transport: Literal["stdio", "streamable-http"] = Field(
         default="streamable-http",
-        description="Transport protocol: 'streamable-http' (for Claude Desktop, n8n, ChatGPT)",
+        description="Transport protocol: 'stdio' or 'streamable-http'",
     )
 
     # Things authentication
@@ -52,34 +52,20 @@ class Settings(BaseSettings):
         description="Things 3 authentication token (from Things > Settings > General > Enable Things URLs)",
     )
 
-    # OAuth / bearer auth enforcement
+    things_mcp_http_token: SecretStr = SecretStr("")
+    things_mcp_read_only: bool = False
+    things_mcp_allow_tag_creation: bool = False
+
+    # HTTP bearer authentication
     things_mcp_require_auth: bool = Field(
         default=False,
-        description="Require OAuth bearer token on all /mcp requests (set true for remote/ngrok access)",
+        description="Require a separate HTTP bearer token",
     )
 
     # Debug settings
     things_mcp_debug: bool = Field(
         default=False,
         description="Enable verbose debug logging to console (default: INFO only)",
-    )
-    things_mcp_disable_background_osascript: bool = Field(
-        default=False,
-        description="Disable background AppleScript execution (shows Things in foreground)",
-    )
-
-    # Retry configuration
-    retry_attempts: int = Field(
-        default=3,
-        ge=1,
-        le=10,
-        description="Number of retry attempts for failed operations",
-    )
-    retry_delay: float = Field(
-        default=1.0,
-        ge=0.1,
-        le=30.0,
-        description="Delay between retry attempts in seconds",
     )
 
     @property
@@ -99,50 +85,3 @@ def get_settings() -> Settings:
         ValidationError: If required settings are missing or invalid.
     """
     return Settings()
-
-
-def get_auth_token() -> str:
-    """Get the Things authentication token.
-
-    Convenience function for backwards compatibility.
-
-    Returns:
-        str: The authentication token, or empty string if not configured.
-    """
-    return get_settings().things_auth_token
-
-
-def get_host() -> str:
-    """Get the server host address.
-
-    Returns:
-        str: The host address to bind to.
-    """
-    return get_settings().things_mcp_host
-
-
-def get_port() -> int:
-    """Get the server port.
-
-    Returns:
-        int: The port number to listen on.
-    """
-    return get_settings().things_mcp_port
-
-
-def get_transport() -> Literal["streamable-http"]:
-    """Get the transport protocol setting.
-
-    Returns:
-        str: The transport protocol to enable (always "streamable-http").
-    """
-    return get_settings().things_mcp_transport
-
-
-def is_debug_enabled() -> bool:
-    """Check if debug logging is enabled.
-
-    Returns:
-        bool: True if debug logging should be enabled.
-    """
-    return get_settings().things_mcp_debug

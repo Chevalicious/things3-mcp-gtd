@@ -42,10 +42,11 @@ class TestConstructUrl:
 
     @patch(PATCH_AUTH, return_value="my-secret-token")
     def test_auth_token_included(self, _):
-        """Auth token is appended to all URLs when configured."""
+        """Only updates receive the Things token."""
         from things_mcp.url_scheme import construct_url
 
-        url = construct_url("add", {"title": "Test"})
+        assert "auth-token" not in construct_url("add", {"title": "Test"})
+        url = construct_url("update", {"id": "abc", "title": "Test"})
         _, params = _parse_things_url(url)
 
         assert params["auth-token"] == "my-secret-token"
@@ -61,7 +62,7 @@ class TestConstructUrl:
         assert "title" in params
         assert "notes" not in params
 
-    @patch(PATCH_AUTH, return_value="")
+    @patch(PATCH_AUTH, return_value="test-token")
     def test_boolean_params_lowercase(self, _):
         """Boolean values are converted to lowercase strings."""
         from things_mcp.url_scheme import construct_url
@@ -189,7 +190,7 @@ class TestAddProject:
 class TestUpdateTodo:
     """Tests for update_todo() URL builder."""
 
-    @patch(PATCH_AUTH, return_value="")
+    @patch(PATCH_AUTH, return_value="test-token")
     def test_update_title(self, _):
         from things_mcp.url_scheme import update_todo
 
@@ -200,7 +201,7 @@ class TestUpdateTodo:
         assert params["id"] == "uuid-123"
         assert params["title"] == "New Title"
 
-    @patch(PATCH_AUTH, return_value="")
+    @patch(PATCH_AUTH, return_value="test-token")
     def test_update_completed(self, _):
         from things_mcp.url_scheme import update_todo
 
@@ -209,7 +210,7 @@ class TestUpdateTodo:
 
         assert params["completed"] == "true"
 
-    @patch(PATCH_AUTH, return_value="")
+    @patch(PATCH_AUTH, return_value="test-token")
     def test_update_append_notes(self, _):
         from things_mcp.url_scheme import update_todo
 
@@ -218,7 +219,7 @@ class TestUpdateTodo:
 
         assert params["append-notes"] == "Added later"
 
-    @patch(PATCH_AUTH, return_value="")
+    @patch(PATCH_AUTH, return_value="test-token")
     def test_update_only_provided_fields(self, _):
         """Only explicitly provided fields appear in URL."""
         from things_mcp.url_scheme import update_todo
@@ -234,7 +235,7 @@ class TestUpdateTodo:
 class TestUpdateProject:
     """Tests for update_project() URL builder."""
 
-    @patch(PATCH_AUTH, return_value="")
+    @patch(PATCH_AUTH, return_value="test-token")
     def test_update_project_title(self, _):
         from things_mcp.url_scheme import update_project
 
@@ -244,7 +245,7 @@ class TestUpdateProject:
         assert command == "update-project"
         assert params["title"] == "Renamed"
 
-    @patch(PATCH_AUTH, return_value="")
+    @patch(PATCH_AUTH, return_value="test-token")
     def test_update_project_completed(self, _):
         from things_mcp.url_scheme import update_project
 
@@ -380,41 +381,49 @@ class TestBuildChecklistItem:
         assert obj["attributes"]["completed"] is True
 
 
-class TestShouldUseJsonApi:
-    """Tests for should_use_json_api()."""
+def test_unconfirmed_delivery_is_not_replayed_or_logged(monkeypatch, caplog):
+    from subprocess import TimeoutExpired
+    from unittest.mock import Mock
 
-    @patch("things_mcp.utils.detect_things_version")
-    def test_version_3_4_returns_true(self, mock_version):
-        mock_version.return_value = "3.4.0"
-        from things_mcp.url_scheme import should_use_json_api
+    from things_mcp import url_scheme
 
-        assert should_use_json_api() is True
+    monkeypatch.setattr(url_scheme.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(url_scheme, "circuit_breaker", Mock())
+    monkeypatch.setattr(url_scheme, "rate_limiter", Mock())
+    url = "things:///update?id=test&auth-token=synthetic-private-value"
+    run = Mock(side_effect=TimeoutExpired(["open", url], 5))
+    monkeypatch.setattr(url_scheme.subprocess, "run", run)
+    with caplog.at_level("DEBUG"):
+        assert not url_scheme.execute_url(url)
+    assert run.call_count == 1
+    assert "synthetic-private-value" not in caplog.text
 
-    @patch("things_mcp.utils.detect_things_version")
-    def test_version_3_15_returns_true(self, mock_version):
-        mock_version.return_value = "3.15.4"
-        from things_mcp.url_scheme import should_use_json_api
 
-        assert should_use_json_api() is True
+def test_update_requires_things_token(monkeypatch):
+    from fastmcp.exceptions import ToolError
+    from things_mcp.url_scheme import update_todo
 
-    @patch("things_mcp.utils.detect_things_version")
-    def test_version_3_3_returns_false(self, mock_version):
-        mock_version.return_value = "3.3.9"
-        from things_mcp.url_scheme import should_use_json_api
+    monkeypatch.setattr(PATCH_AUTH, lambda: "")
+    with pytest.raises(ToolError, match="THINGS_AUTH_TOKEN"):
+        update_todo("task-id", completed=True)
 
-        assert should_use_json_api() is False
 
-    @patch("things_mcp.utils.detect_things_version")
-    def test_version_none_returns_true(self, mock_version):
-        """When version can't be detected, defaults to True."""
-        mock_version.return_value = None
-        from things_mcp.url_scheme import should_use_json_api
+def test_project_template_keeps_checklists_under_headings():
+    import json
 
-        assert should_use_json_api() is True
+    from things_mcp.url_scheme import add_project_with_tasks
 
-    @patch("things_mcp.utils.detect_things_version")
-    def test_malformed_version_returns_false(self, mock_version):
-        mock_version.return_value = "invalid"
-        from things_mcp.url_scheme import should_use_json_api
-
-        assert should_use_json_api() is False
+    _, params = _parse_things_url(
+        add_project_with_tasks(
+            "Project",
+            [{"title": "Root"}],
+            headings={
+                "Prep": [{"title": "Grouped task", "checklist_items": ["First step"]}]
+            },
+        )
+    )
+    items = json.loads(params["data"])[0]["attributes"]["items"]
+    assert [item["type"] for item in items] == ["to-do", "heading", "to-do"]
+    assert items[2]["attributes"]["checklist-items"] == [
+        {"type": "checklist-item", "attributes": {"title": "First step"}}
+    ]

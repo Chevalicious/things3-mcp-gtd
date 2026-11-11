@@ -7,14 +7,14 @@ The streamable-http transport requires patching the MCP SDK's Accept header
 validation to support RFC 7231 wildcard Accept headers (e.g., "*/*").
 """
 
+import logging
 from typing import List
 
 from starlette.middleware import Middleware
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from .logging_config import get_logger
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def patch_accept_headers() -> bool:

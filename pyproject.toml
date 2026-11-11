@@ -1,7 +1,7 @@
 [project]
 name = "things3-mcp-gtd"
-version = "1.0.1"
-description = "Production-ready Model Context Protocol server for Things 3, enabling AI assistants to interact with your task management system through natural language"
+version = "2.0.0"
+description = "Local MCP server for Things 3 on macOS"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT License" }
@@ -10,8 +10,6 @@ authors = [
 ]
 keywords = [
     "mcp",
-    "anthropic",
-    "claude",
     "things3",
     "things",
     "task-management",
@@ -25,6 +23,8 @@ classifiers = [
     "Intended Audience :: End Users/Desktop",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Utilities",
     "Topic :: Office/Business :: Scheduling",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -32,16 +32,18 @@ classifiers = [
 ]
 dependencies = [
     "httpx>=0.28.1",
-    "fastmcp>=3.0.2",
+    "fastmcp>=3.4.11,<4",
+    "mcp>=1.30,<2",
     "pydantic-settings>=2.0.0",
-    "things-py>=0.0.15",
-    "rich>=13.7.0",
-    "wsproto>=1.2.0",  # WebSocket protocol without deprecation warnings
+    "things-py>=1.1,<2",
+    "starlette>=0.52.1,<2",
+    "uvicorn>=0.40,<1",
 ]
 
 [project.urls]
 "Homepage" = "https://github.com/Chevalicious/things3-mcp-gtd"
 "Bug Tracker" = "https://github.com/Chevalicious/things3-mcp-gtd/issues"
+"Changelog" = "https://github.com/Chevalicious/things3-mcp-gtd/blob/main/CHANGELOG.md"
 "Documentation" = "https://github.com/Chevalicious/things3-mcp-gtd#readme"
 
 [build-system]
@@ -73,8 +75,8 @@ dev = [
 ]
 
 [project.scripts]
+things3-mcp = "things_mcp.things_fast_server:main"
 things3-mcp-gtd = "things_mcp.things_fast_server:main"
-server = "things_mcp.things_fast_server:main"
 
 [tool.hatch.envs.default.scripts]
 test = "python -m pytest tests"
@@ -91,3 +93,8 @@ dev = [
     "pytest-cov>=7.0.0",
     "ruff>=0.15.0",
 ]
+
+[tool.ruff]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]

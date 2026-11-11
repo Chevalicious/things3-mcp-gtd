@@ -23,27 +23,32 @@ ADD_ANNOTATIONS = types.ToolAnnotations(
 UPDATE_ANNOTATIONS = types.ToolAnnotations(
     readOnlyHint=False,
     destructiveHint=False,
-    idempotentHint=True,
+    # Several update tools append notes or checklist items.
+    idempotentHint=False,
+    openWorldHint=False,
+)
+
+REPLACE_ANNOTATIONS = types.ToolAnnotations(
+    readOnlyHint=False,
+    destructiveHint=True,
+    idempotentHint=False,
     openWorldHint=False,
 )
 
 TOOL_ANNOTATIONS: Dict[str, types.ToolAnnotations] = {
-    # === GTD Engage Tools ===
     "get-tasks": READ_ONLY_ANNOTATIONS,
     "focus-mode": READ_ONLY_ANNOTATIONS,
     "complete-task": UPDATE_ANNOTATIONS,
-    # === GTD Capture Tools ===
     "capture-task": ADD_ANNOTATIONS,
-    # === GTD Clarify Tools ===
+    "capture-tasks": ADD_ANNOTATIONS,
     "process-inbox": READ_ONLY_ANNOTATIONS,
-    "convert-to-project": ADD_ANNOTATIONS,
-    # === GTD Organize Tools ===
+    "convert-to-project": REPLACE_ANNOTATIONS,
     "schedule-task": ADD_ANNOTATIONS,
     "delegate-task": UPDATE_ANNOTATIONS,
     "defer-task": UPDATE_ANNOTATIONS,
     "plan-project": ADD_ANNOTATIONS,
-    "modify-task": UPDATE_ANNOTATIONS,
-    # === GTD Reflect Tools ===
+    "move-task": UPDATE_ANNOTATIONS,
+    "modify-task": REPLACE_ANNOTATIONS,
     "daily-review": READ_ONLY_ANNOTATIONS,
     "weekly-review": READ_ONLY_ANNOTATIONS,
     # === Utility Tools ===

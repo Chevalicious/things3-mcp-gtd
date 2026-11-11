@@ -6,7 +6,6 @@ Provides intelligent caching for frequently accessed data to improve performance
 
 import time
 import json
-import hashlib
 import logging
 from typing import Any, Dict, Optional, Callable, Tuple
 from functools import wraps
@@ -27,19 +26,15 @@ class ThingsCache:
         Args:
             default_ttl: Default time-to-live for cache entries in seconds
         """
-        self.cache: Dict[str, Tuple[Any, float]] = {}
+        self.cache: Dict[tuple[str, str], Tuple[Any, float]] = {}
         self.default_ttl = default_ttl
         self.lock = Lock()
         self.hit_count = 0
         self.miss_count = 0
 
-    def _make_key(self, operation: str, **kwargs) -> str:
+    def _make_key(self, operation: str, **kwargs) -> tuple[str, str]:
         """Generate a cache key from operation and parameters."""
-        # Sort kwargs to ensure consistent keys
-        sorted_params = json.dumps(kwargs, sort_keys=True)
-        key_string = f"{operation}:{sorted_params}"
-        # Use hash for shorter keys
-        return hashlib.md5(key_string.encode()).hexdigest()
+        return operation, json.dumps(kwargs, sort_keys=True)
 
     def get(self, operation: str, **kwargs) -> Optional[Any]:
         """
@@ -59,12 +54,12 @@ class ThingsCache:
                 value, expiry_time = self.cache[key]
                 if time.time() < expiry_time:
                     self.hit_count += 1
-                    logger.debug(f"Cache hit for {operation}: {key}")
+                    logger.debug(f"Cache hit for {operation}")
                     return value
                 else:
                     # Expired, remove it
                     del self.cache[key]
-                    logger.debug(f"Cache expired for {operation}: {key}")
+                    logger.debug(f"Cache expired for {operation}")
 
             self.miss_count += 1
             return None
@@ -87,7 +82,7 @@ class ThingsCache:
 
         with self.lock:
             self.cache[key] = (value, expiry_time)
-            logger.debug(f"Cache set for {operation}: {key}, TTL: {ttl}s")
+            logger.debug(f"Cache set for {operation}, TTL: {ttl}s")
 
     def invalidate(self, operation: Optional[str] = None, **kwargs) -> None:
         """
@@ -103,16 +98,10 @@ class ThingsCache:
                 key = self._make_key(operation, **kwargs)
                 if key in self.cache:
                     del self.cache[key]
-                    logger.debug(f"Invalidated specific cache entry: {key}")
+                    logger.debug("Invalidated specific cache entry")
             elif operation:
                 # Invalidate all entries for an operation
-                keys_to_remove = [
-                    k
-                    for k in self.cache.keys()
-                    if k.startswith(
-                        hashlib.md5(f"{operation}:".encode()).hexdigest()[:8]
-                    )
-                ]
+                keys_to_remove = [key for key in self.cache if key[0] == operation]
                 for key in keys_to_remove:
                     del self.cache[key]
                 logger.debug(
@@ -257,7 +246,3 @@ def start_cache_cleanup_task(interval: int = 300):
     thread = threading.Thread(target=cleanup_task, daemon=True)
     thread.start()
     logger.info(f"Started cache cleanup task with {interval}s interval")
-
-
-# Start cleanup task when module is imported
-start_cache_cleanup_task()
