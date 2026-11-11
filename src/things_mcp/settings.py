@@ -41,7 +41,7 @@ class Settings(BaseSettings):
         le=65535,
         description="Port for the MCP server to listen on",
     )
-    things_mcp_transport: Literal["stdio", "streamable-http"] = Field(
+    things_mcp_transport: Literal["stdio", "streamable-http", "oauth-http"] = Field(
         default="streamable-http",
         description="Transport protocol: 'stdio' or 'streamable-http'",
     )
@@ -55,6 +55,15 @@ class Settings(BaseSettings):
     things_mcp_http_token: SecretStr = SecretStr("")
     things_mcp_read_only: bool = False
     things_mcp_allow_tag_creation: bool = False
+    things_mcp_allow_automation_writes: bool = False
+
+    # OAuth runs on a separate, explicitly selected HTTP transport.
+    things_mcp_oauth_url: str = ""
+    things_mcp_oauth_github_client_id: str = ""
+    things_mcp_oauth_github_client_secret: SecretStr = SecretStr("")
+    things_mcp_oauth_github_user_id: int | None = None
+    things_mcp_oauth_redirect_uris: str = ""
+    things_mcp_oauth_allow_writes: bool = False
 
     # HTTP bearer authentication
     things_mcp_require_auth: bool = Field(

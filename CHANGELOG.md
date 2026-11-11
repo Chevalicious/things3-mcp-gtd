@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `move-task`: ID-based moves into areas, projects, and headings, with destination readback. Project listings can show heading IDs.
 - `capture-tasks`: Inbox batches of up to 10 rows with per-row readback and no automatic replay.
 - Item IDs and bounded database readback for captures, scheduled tasks, new projects, and completed tasks.
+- Optional OAuth transport for remote MCP clients using the owner's GitHub login. It defaults to read-only.
+- Compatibility tools for canceling tasks, filing tasks by name, and checking database access. Local area creation and Trash are opt-in.
 
 ### Changed
 
@@ -25,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- Built-in OAuth and non-loopback HTTP binding. Local HTTP uses an optional separate bearer credential and validates Host and Origin.
+- Legacy OAuth that exposed the Things URL token, and direct non-loopback HTTP binding. Local HTTP uses an optional separate bearer credential and validates Host and Origin.
 - Client-specific integration guides, the LaunchAgent template, and the Smithery manifest.
 - The generic `server` console command.
 - Unused retry settings, the on-disk failed-operation queue, and the remote server icon.

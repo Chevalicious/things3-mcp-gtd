@@ -12,7 +12,7 @@ def main():
     parser = argparse.ArgumentParser(description="Connect an MCP client to Things 3.")
     parser.add_argument(
         "--transport",
-        choices=("stdio", "streamable-http"),
+        choices=("stdio", "streamable-http", "oauth-http"),
         help="Override THINGS_MCP_TRANSPORT (default: streamable-http).",
     )
     args = parser.parse_args()

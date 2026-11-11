@@ -11,6 +11,7 @@ from fastmcp.exceptions import ToolError
 from .utils import _normalize_id
 from .url_scheme import (
     add_todo,
+    build_when_with_reminder,
     update_todo,
     execute_url,
     add_project_with_tasks,
@@ -28,6 +29,66 @@ def _error_result(message: str):
     raise ToolError(message)
 
 
+def _resolve_destination(task_id, list_name, list_id, heading, heading_id):
+    """Resolve legacy destination inputs without guessing between duplicate names."""
+    if list_name and not list_id:
+        matches = [
+            item["uuid"]
+            for item in [*things.projects(), *things.areas()]
+            if list_name.casefold()
+            in (item["title"].casefold(), item["uuid"].casefold())
+        ]
+        if len(matches) != 1:
+            _error_result("Destination is missing or ambiguous. Use its ID.")
+        list_id = matches[0]
+    if not (heading or heading_id):
+        if list_id:
+            target = things.get(list_id) or {}
+            if (
+                target.get("type") not in {"area", "project"}
+                or target.get("trashed")
+                or (
+                    target["type"] == "project" and target.get("status") != "incomplete"
+                )
+            ):
+                _error_result("Destination ID must identify an area or active project.")
+        return list_id, None
+    if heading_id:
+        target = things.get(heading_id) or {}
+        project_id = target.get("project")
+        if target.get("type") != "heading" or not project_id:
+            _error_result("Heading ID does not identify an active project heading.")
+        if list_id and project_id != list_id:
+            _error_result("Heading belongs to a different project.")
+        list_id = project_id
+    if not list_id:
+        task = (things.get(task_id) or {}) if task_id else {}
+        list_id = task.get("project")
+        if not list_id and (current_heading := task.get("heading")):
+            list_id = (things.get(current_heading) or {}).get("project")
+    project = things.get(list_id) if list_id else None
+    if (
+        not project
+        or project.get("type") != "project"
+        or project.get("trashed")
+        or project.get("status") != "incomplete"
+    ):
+        _error_result("An existing project is required for a heading.")
+    headings = things.tasks(project=list_id, type="heading")
+    matches = [
+        item
+        for item in headings
+        if (
+            item["uuid"] == heading_id
+            if heading_id
+            else item["title"].casefold() == heading.casefold()
+        )
+    ]
+    if len(matches) != 1:
+        _error_result("Heading is missing or ambiguous. Use its ID.")
+    return list_id, matches[0]
+
+
 def register_planning_tools(mcp: FastMCP):
     """Register scheduling and editing tools."""
 
@@ -36,13 +97,16 @@ def register_planning_tools(mcp: FastMCP):
     )
     async def schedule_task(
         title: str,
-        when: str,
+        when: Optional[str] = None,
         deadline: Optional[str] = None,
         project: Optional[str] = None,
         area: Optional[str] = None,
         context: Optional[List[str]] = None,
         checklist: Optional[List[str]] = None,
         notes: Optional[str] = None,
+        heading: Optional[str] = None,
+        reminder_time: Optional[str] = None,
+        reminder_at: Optional[str] = None,
         ctx: Context = None,
     ) -> str:
         """Create a task with specific scheduling and organization.
@@ -59,16 +123,20 @@ def register_planning_tools(mcp: FastMCP):
             context: Existing Things tag names to apply
             checklist: Subtasks/checklist items
             notes: Additional notes
+            heading: Existing heading within the destination project
+            reminder_time: Time such as 6pm on a dated when value
+            reminder_at: Full date and time, such as tomorrow@18:00
         """
         if ctx:
             await ctx.info("Scheduling task for …")
 
         if not title:
             return "Please provide a title for the task."
-        if not when:
+        if not when and not reminder_at:
             return "Please provide a when value (e.g., 'today', 'tomorrow', 'anytime', or YYYY-MM-DD)."
 
         try:
+            when = build_when_with_reminder(when, reminder_time, reminder_at)
             if project and area:
                 _error_result("Choose either a project or an area.")
             destination = None
@@ -92,6 +160,12 @@ def register_planning_tools(mcp: FastMCP):
                     )
                 destination = matches[0]
 
+            heading_item = None
+            if heading:
+                destination, heading_item = await asyncio.to_thread(
+                    _resolve_destination, None, None, destination, heading, None
+                )
+
             # Combine context with any other tags
             tags = context if context else None
             if tags:
@@ -106,6 +180,7 @@ def register_planning_tools(mcp: FastMCP):
                 tags=tags,
                 checklist_items=checklist,
                 list_id=destination,
+                heading=heading_item["title"] if heading_item else None,
             )
 
             item_id = await asyncio.to_thread(
@@ -118,7 +193,11 @@ def register_planning_tools(mcp: FastMCP):
                     (not notes or item.get("notes") == notes)
                     and (
                         not destination
+                        or heading_item
                         or item.get("project" if project else "area") == destination
+                    )
+                    and (
+                        not heading_item or item.get("heading") == heading_item["uuid"]
                     )
                 ),
             )
@@ -140,6 +219,8 @@ def register_planning_tools(mcp: FastMCP):
 
             return result
 
+        except ValueError as exc:
+            _error_result(str(exc))
         except ToolError:
             raise
         except Exception as e:
@@ -316,11 +397,12 @@ def register_planning_tools(mcp: FastMCP):
     )
     async def plan_project(
         title: str,
-        tasks: List[Dict[str, Any]],
+        tasks: Optional[List[Dict[str, Any]]] = None,
         notes: Optional[str] = None,
         when: Optional[str] = None,
         deadline: Optional[str] = None,
         area: Optional[str] = None,
+        headings: Optional[Dict[str, List[Dict[str, Any]]]] = None,
         ctx: Context = None,
     ) -> str:
         """Submit a project and its initial tasks in one request.
@@ -332,6 +414,7 @@ def register_planning_tools(mcp: FastMCP):
             when: Project schedule
             deadline: Project deadline
             area: Area name to add to
+            headings: Existing request format mapping new heading names to their tasks
 
         Example tasks:
             [
@@ -344,9 +427,19 @@ def register_planning_tools(mcp: FastMCP):
             await ctx.info("Creating project: …")
 
         try:
-            if not title.strip() or any(
-                not isinstance(task.get("title"), str) or not task["title"].strip()
-                for task in tasks
+            tasks = tasks or []
+            headings = headings or {}
+            all_tasks = [
+                *tasks,
+                *(task for group in headings.values() for task in group),
+            ]
+            if (
+                not title.strip()
+                or any(not name.strip() for name in headings)
+                or any(
+                    not isinstance(task.get("title"), str) or not task["title"].strip()
+                    for task in all_tasks
+                )
             ):
                 _error_result("Provide a title for the project and each task.")
 
@@ -358,6 +451,7 @@ def register_planning_tools(mcp: FastMCP):
                 when=when,
                 deadline=deadline,
                 area=area,
+                headings=headings,
             )
 
             item_id = await asyncio.to_thread(
@@ -372,7 +466,7 @@ def register_planning_tools(mcp: FastMCP):
             invalidate_caches_for(["get-projects", "get-tasks"])
 
             result = creation_result("Project created", title, item_id) + "\n"
-            result += f"- {len(tasks)} tasks requested\n"
+            result += f"- {len(all_tasks)} tasks requested\n"
             if deadline:
                 result += f"- Deadline: {deadline}\n"
 
@@ -386,7 +480,6 @@ def register_planning_tools(mcp: FastMCP):
                 "Error creating project. Check Things and the server settings."
             )
 
-    @mcp.tool(name="move-task", annotations=TOOL_ANNOTATIONS["move-task"], timeout=15)
     async def move_task(task_id: str, destination_id: str) -> str:
         """Move an existing to-do to a project, area, or heading by ID.
 
@@ -465,6 +558,34 @@ def register_planning_tools(mcp: FastMCP):
             logger.error("Error moving task (%s)", type(e).__name__)
             _error_result("Could not verify the move. Check Things before retrying.")
 
+    mcp.tool(name="move-task", annotations=TOOL_ANNOTATIONS["move-task"], timeout=15)(
+        move_task
+    )
+
+    @mcp.tool(
+        name="organize-task", annotations=TOOL_ANNOTATIONS["organize-task"], timeout=20
+    )
+    async def organize_task(
+        task_id: str,
+        project: Optional[str] = None,
+        project_id: Optional[str] = None,
+        area: Optional[str] = None,
+        heading: Optional[str] = None,
+        heading_id: Optional[str] = None,
+    ) -> str:
+        """Move a task to a project, area, or existing heading by name or ID."""
+        if area and (project or project_id):
+            _error_result("Choose either a project or an area.")
+        list_id, target = await asyncio.to_thread(
+            _resolve_destination,
+            task_id,
+            project or area,
+            project_id,
+            heading,
+            heading_id,
+        )
+        return await move_task(task_id, target["uuid"] if target else list_id)
+
     @mcp.tool(
         name="modify-task", annotations=TOOL_ANNOTATIONS["modify-task"], timeout=30
     )
@@ -479,6 +600,12 @@ def register_planning_tools(mcp: FastMCP):
         add_tags: Optional[List[str]] = None,
         checklist: Optional[List[str]] = None,
         add_checklist: Optional[List[str]] = None,
+        project: Optional[str] = None,
+        project_id: Optional[str] = None,
+        heading: Optional[str] = None,
+        heading_id: Optional[str] = None,
+        reminder_time: Optional[str] = None,
+        reminder_at: Optional[str] = None,
         ctx: Context = None,
     ) -> str:
         """General task modification for updates not covered by specific tools.
@@ -497,6 +624,12 @@ def register_planning_tools(mcp: FastMCP):
             add_tags: Tags to add (preserves existing)
             checklist: New checklist items (replaces existing)
             add_checklist: Checklist items to append (preserves existing)
+            project: Destination project or area name
+            project_id: Destination project or area ID
+            heading: Existing heading in the destination or current project
+            heading_id: Existing heading ID
+            reminder_time: Time such as 6pm on a dated when value
+            reminder_at: Full date and time, such as tomorrow@18:00
         """
         if ctx:
             await ctx.info("Updating task...")
@@ -508,6 +641,10 @@ def register_planning_tools(mcp: FastMCP):
             return "Please provide a task_id (the UUID of the task to update)."
 
         try:
+            when = build_when_with_reminder(when, reminder_time, reminder_at)
+            list_id, target = await asyncio.to_thread(
+                _resolve_destination, task_id, project, project_id, heading, heading_id
+            )
             # Ensure tags exist
             all_tags = (tags or []) + (add_tags or [])
             if all_tags:
@@ -525,6 +662,8 @@ def register_planning_tools(mcp: FastMCP):
                 add_tags=add_tags,
                 checklist_items=checklist,
                 append_checklist_items=add_checklist,
+                list_id=list_id,
+                heading_id=target["uuid"] if target else None,
             )
 
             success = await asyncio.to_thread(execute_url, url)
@@ -535,6 +674,8 @@ def register_planning_tools(mcp: FastMCP):
 
             return "Update request submitted to Things. Check the task to verify the change."
 
+        except ValueError as exc:
+            _error_result(str(exc))
         except ToolError:
             raise
         except Exception as e:

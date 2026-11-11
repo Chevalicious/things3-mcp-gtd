@@ -14,6 +14,7 @@ from fastmcp.server.middleware import Middleware
 
 from .settings import get_settings
 from .tool_annotations import TOOL_ANNOTATIONS
+from .tools_compatibility import AUTOMATION_TOOLS
 
 logger = logging.getLogger(__name__)
 
@@ -188,6 +189,22 @@ def _make_all_fields_required(schema: dict) -> dict:
 
 
 class ClientCompatibilityMiddleware(Middleware):
+    def __init__(self, *, remote=False):
+        self.remote = remote
+
+    def _tool_enabled(self, name):
+        settings = get_settings()
+        if name in AUTOMATION_TOOLS:
+            return (
+                not self.remote
+                and not settings.things_mcp_read_only
+                and settings.things_mcp_allow_automation_writes
+            )
+        read_only = settings.things_mcp_read_only or (
+            self.remote and not settings.things_mcp_oauth_allow_writes
+        )
+        return not read_only or _read_only_tool(name)
+
     """Handle client-specific quirks for n8n and ChatGPT compatibility.
 
     on_list_tools:
@@ -245,7 +262,7 @@ class ClientCompatibilityMiddleware(Middleware):
 
         result = []
         for tool in tools:
-            if get_settings().things_mcp_read_only and not _read_only_tool(tool.name):
+            if not self._tool_enabled(tool.name):
                 continue
             if hasattr(tool, "parameters") and tool.parameters:
                 # 1. Always flatten anyOf → type arrays (all clients)
@@ -266,7 +283,11 @@ class ClientCompatibilityMiddleware(Middleware):
         tool_name = None
         if hasattr(context, "message") and hasattr(context.message, "name"):
             tool_name = context.message.name
-        if get_settings().things_mcp_read_only and not _read_only_tool(tool_name):
+        if not self._tool_enabled(tool_name):
+            if tool_name in AUTOMATION_TOOLS:
+                raise ToolError(
+                    "This AppleScript tool is unavailable in this server mode."
+                )
             raise ToolError("This tool is disabled in read-only mode.")
 
         if hasattr(context, "message") and hasattr(context.message, "arguments"):
@@ -292,23 +313,20 @@ def _read_only_tool(name: str | None) -> bool:
     return bool(annotation and annotation.readOnlyHint and name != "show-in-app")
 
 
-def create_mcp_server() -> FastMCP:
+def create_mcp_server(*, auth=None) -> FastMCP:
     """Create and configure the FastMCP server instance."""
     server = FastMCP(
         "Things",
         instructions=INSTRUCTIONS_TEXT,
         mask_error_details=True,
         website_url=WEBSITE_URL,
+        auth=auth,
     )
 
     # Add client compatibility middleware for n8n and ChatGPT
     # - Strips extra parameters that n8n sends (toolCallId, sessionId, etc.)
     # - Strips null values for optional fields
     # See: https://github.com/n8n-io/n8n/issues/21500
-    try:
-        server.add_middleware(ClientCompatibilityMiddleware())
-        logger.info("Client compatibility middleware registered (n8n/ChatGPT)")
-    except Exception as e:
-        logger.warning(f"Could not register client compatibility middleware: {e}")
+    server.add_middleware(ClientCompatibilityMiddleware(remote=auth is not None))
 
     return server

@@ -12,6 +12,7 @@ from .client_compat import get_streamable_http_middleware
 from .config import get_things_auth_token
 from .server_core import create_mcp_server
 from .settings import get_settings
+from .tools_compatibility import register_compatibility_tools
 from .tools_planning import register_planning_tools
 from .tools_reviews import register_reviews_tools
 from .tools_tasks import register_tasks_tools
@@ -22,11 +23,18 @@ LOCAL_AUTHORITY = re.compile(
     r"(?:127\.0\.0\.1|\[::1\]|localhost)(?::[0-9]{1,5})?", re.I | re.ASCII
 )
 
-mcp = create_mcp_server()
-register_tasks_tools(mcp)
-register_planning_tools(mcp)
-register_reviews_tools(mcp)
-register_utility_tools(mcp)
+
+def _server_with_tools(*, auth=None):
+    server = create_mcp_server(auth=auth)
+    register_tasks_tools(server)
+    register_planning_tools(server)
+    register_reviews_tools(server)
+    register_utility_tools(server)
+    register_compatibility_tools(server)
+    return server
+
+
+mcp = _server_with_tools()
 
 
 class _LocalHTTPMiddleware:
@@ -124,8 +132,17 @@ def run_things_mcp_server(transport: str | None = None):
 
     import uvicorn
 
+    if transport == "oauth-http":
+        from .oauth_transport import build_oauth_app
+
+        if settings.things_mcp_host not in LOOPBACK_HOSTS:
+            raise ValueError("OAuth HTTP must bind to loopback behind an HTTPS proxy.")
+        app = build_oauth_app(settings, _server_with_tools)
+    else:
+        app = _create_combined_app(mcp, transport)
+
     uvicorn.run(
-        _create_combined_app(mcp, transport),
+        app,
         host=settings.things_mcp_host,
         port=settings.things_mcp_port,
         ws="none",

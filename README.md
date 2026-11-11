@@ -2,7 +2,7 @@
 
 Connect an MCP client to Things 3 on your Mac. Find tasks, capture to-dos, edit schedules and checklists, plan projects, and review what's coming up. Use the lists and tags you already have.
 
-Everything runs locally: reads come from the Things database in read-only mode, writes go through the official Things URL scheme, and nothing is sent anywhere except to the MCP client you connect. Unofficial; not affiliated with Cultured Code.
+The server runs on your Mac. It reads the Things database in read-only mode and uses the official Things URL scheme for routine writes. Task data goes to the MCP client you connect. Unofficial; not affiliated with Cultured Code.
 
 ## Agent Usage
 
@@ -65,12 +65,13 @@ The server asks for as little as it can, and each grant is made once.
 | Create to-dos and projects | Things URLs enabled | Things → Settings → General |
 | Change existing items | `THINGS_AUTH_TOKEN` | Server environment |
 | Create missing tags (off by default) | macOS Automation permission to control Things | macOS prompt on first use |
+| Create areas or move tasks to Trash (off by default) | macOS Automation permission to control Things | macOS prompt on first use |
 
 To keep macOS from asking again, keep using the same client and the same installed `things3-mcp` path. macOS ties its grants to the launching app, so a different client, terminal, or reinstalled path may be asked once more. If reads fail, check that launcher's permission in **System Settings → Privacy & Security**.
 
 The server never needs Accessibility access, and it doesn't start or probe Things when it launches. Routine reads, writes, and use of existing tags don't use AppleScript.
 
-If a tool reports an unknown tag, create it in **Things → Window → Tags** and retry. This includes the `waiting-for` tag used by `delegate-task`. To let the server create tags instead, set `THINGS_MCP_ALLOW_TAG_CREATION=true`; this is the only feature that uses AppleScript and may trigger the [Automation prompt](https://support.apple.com/guide/mac-help/mchl108e1718/mac).
+If a tool reports an unknown tag, create it in **Things → Window → Tags** and retry. This includes the `waiting-for` tag used by `delegate-task`. Set `THINGS_MCP_ALLOW_TAG_CREATION=true` to let the server create missing tags, or `THINGS_MCP_ALLOW_AUTOMATION_WRITES=true` for local area creation and Trash. These AppleScript tools may trigger the [Automation prompt](https://support.apple.com/guide/mac-help/mchl108e1718/mac).
 
 ## Settings
 
@@ -81,6 +82,7 @@ Set these in your client's `env` block, or in an owner-only `.env` file in the s
 | `THINGS_MCP_READ_ONLY` | `false` | Hide and block every tool that writes or opens Things |
 | `THINGS_AUTH_TOKEN` | unset | Things URL token; required only to change existing items |
 | `THINGS_MCP_ALLOW_TAG_CREATION` | `false` | Create missing tags through AppleScript |
+| `THINGS_MCP_ALLOW_AUTOMATION_WRITES` | `false` | Enable local area creation and Trash through AppleScript |
 | `THINGS_MCP_TRANSPORT` | `streamable-http` | `stdio` or `streamable-http`; `--transport` overrides it |
 | `THINGS_MCP_HOST` | `127.0.0.1` | HTTP bind address; loopback only |
 | `THINGS_MCP_PORT` | `8009` | HTTP port |
@@ -100,7 +102,7 @@ Set the client endpoint to `http://127.0.0.1:8009/mcp`. The server listens on lo
 
 On a shared Mac, generate a credential with `openssl rand -hex 32`, set it as `THINGS_MCP_HTTP_TOKEN` in the server environment, and send it from your client as an `Authorization: Bearer …` header. Never reuse your Things URL token as the HTTP credential.
 
-This release supports desktop and local clients. It doesn't provide OAuth, public URLs, browser-origin access, or a hosted connector.
+For remote agents that connect through a browser approval flow, see [optional OAuth setup](docs/OAUTH.md).
 
 ## Tools
 
@@ -109,10 +111,11 @@ This release supports desktop and local clients. It doesn't provide OAuth, publi
 | Find tasks or choose what to work on | `get-tasks`, `search-tasks`, `focus-mode`, `process-inbox` |
 | Browse lists and tags | `get-projects`, `get-areas`, `get-tags` |
 | Create | `capture-task`, `capture-tasks`, `schedule-task` |
-| Change an existing to-do | `modify-task`, `move-task`, `complete-task`, `defer-task`, `delegate-task` |
+| Change an existing to-do | `modify-task`, `move-task`, `organize-task`, `complete-task`, `cancel-task`, `defer-task`, `delegate-task` |
 | Plan a project | `plan-project`, `convert-to-project` |
 | Review activity | `daily-review`, `weekly-review` |
-| Open Things or check the connection | `show-in-app`, `get-cache-stats` |
+| Open Things or check the connection | `show-in-app`, `get-cache-stats`, `things-health`, `diagnose` |
+| Create an area or move a to-do to Trash (local opt-in) | `create-area`, `trash-task` |
 
 ### Read task details
 
@@ -170,10 +173,10 @@ Reads use [things.py](https://github.com/thingsapi/things.py) against the Things
 
 ## Upgrading from 1.x
 
-- Tunnel, LAN, and OAuth setups are gone. Stop those deployments and move clients to stdio or local HTTP. If you exposed the old OAuth endpoints, rotate your Things URL token in Things.
+- Use stdio or loopback HTTP for local clients. For remote clients, use the new [optional OAuth transport](docs/OAUTH.md). If you exposed the legacy OAuth endpoints, rotate your Things URL token in Things before switching.
 - Tag creation is now off by default. Create tags in Things, or set `THINGS_MCP_ALLOW_TAG_CREATION=true`.
 - Task lists are compact by default. Pass `include_details: true` for notes, tags, and checklists.
-- Tool names and arguments from 1.x still work.
+- Legacy scheduling and filing arguments are supported. Tools that use AppleScript require an explicit opt-in.
 
 ---
 

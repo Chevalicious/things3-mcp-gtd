@@ -1,6 +1,7 @@
 import json
 import logging
 import platform
+import re
 import subprocess
 import urllib.parse
 from enum import Enum, auto
@@ -10,6 +11,120 @@ from .utils import circuit_breaker, rate_limiter
 
 logger = logging.getLogger(__name__)
 _dispatch_lock = Lock()
+
+
+# `when` values that carry a date and can therefore hold a timed reminder.
+# Things expresses a reminder as a time component on the `when` date
+# (e.g. `today@18:00`), NOT as a separate URL parameter. `anytime`, `someday`,
+# and `evening` have no attachable clock time.
+_DATE_ONLY_WHEN = {"today", "tomorrow"}
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_TIME_24H_RE = re.compile(r"^(\d{1,2}):(\d{2})$")
+_TIME_12H_RE = re.compile(r"^(\d{1,2})(?::(\d{2}))?\s*([ap]m)$")
+
+
+def _normalize_reminder_time(value: str) -> str:
+    """Normalize a reminder time to Things' 24-hour ``HH:MM`` form.
+
+    Accepts ``"6pm"``, ``"6:30pm"``, ``"18:00"``, ``"14:30"``. Bare hours without
+    am/pm or a colon (e.g. ``"6"``) are rejected as ambiguous.
+
+    Raises:
+        ValueError: If the time cannot be parsed.
+    """
+    raw = value.strip().lower()
+
+    m = _TIME_12H_RE.match(raw)
+    if m:
+        hour = int(m.group(1))
+        minute = int(m.group(2) or 0)
+        meridiem = m.group(3)
+        if not (1 <= hour <= 12) or not (0 <= minute <= 59):
+            raise ValueError(f"Invalid reminder time: {value!r}")
+        if meridiem == "pm" and hour != 12:
+            hour += 12
+        elif meridiem == "am" and hour == 12:
+            hour = 0
+        return f"{hour:02d}:{minute:02d}"
+
+    m = _TIME_24H_RE.match(raw)
+    if m:
+        hour = int(m.group(1))
+        minute = int(m.group(2))
+        if not (0 <= hour <= 23) or not (0 <= minute <= 59):
+            raise ValueError(f"Invalid reminder time: {value!r}")
+        return f"{hour:02d}:{minute:02d}"
+
+    raise ValueError(
+        f"Could not parse reminder time {value!r}. "
+        "Use forms like '6pm', '6:30pm', '18:00', or '14:30'."
+    )
+
+
+def _is_date_like_when(when: str) -> bool:
+    """True if ``when`` is a value that can carry a timed reminder."""
+    return when in _DATE_ONLY_WHEN or bool(_DATE_RE.match(when))
+
+
+def build_when_with_reminder(
+    when: Optional[str],
+    reminder_time: Optional[str] = None,
+    reminder_at: Optional[str] = None,
+) -> Optional[str]:
+    """Compose a Things ``when`` value with an optional timed reminder.
+
+    Things has no standalone reminder parameter. A reminder is a time component on
+    the ``when`` date using ``when=<date>@<time>`` (e.g. ``today@18:00``,
+    ``2026-06-10@14:30``). This helper composes that string.
+
+    Args:
+        when: Base schedule — ``today``, ``tomorrow``, or ``YYYY-MM-DD``. Reminders
+            are only valid on these date-like values, NOT ``anytime``/``someday``/
+            ``evening``.
+        reminder_time: Time to attach to ``when`` (e.g. ``"6pm"``, ``"18:00"``).
+        reminder_at: Pre-composed ``"<date>@<time>"`` string; used as the full
+            ``when`` value (takes precedence over ``when`` + ``reminder_time``).
+
+    Returns:
+        The composed ``when`` string, or the original ``when`` if no reminder was
+        requested.
+
+    Raises:
+        ValueError: If a reminder is requested on a non-dated ``when``, if both
+            ``reminder_at`` and ``reminder_time`` are supplied, or if a time/date
+            component is malformed.
+    """
+    if reminder_at and reminder_time:
+        raise ValueError(
+            "Provide either reminder_at (a full 'date@time') or reminder_time "
+            "(combined with 'when'), not both."
+        )
+
+    if reminder_at:
+        if "@" not in reminder_at:
+            raise ValueError(
+                f"reminder_at must be a 'date@time' string (e.g. '2026-06-10@14:30'), "
+                f"got {reminder_at!r}."
+            )
+        date_part, time_part = reminder_at.split("@", 1)
+        date_part = date_part.strip()
+        if not _is_date_like_when(date_part):
+            raise ValueError(
+                f"reminder_at date must be 'today', 'tomorrow', or YYYY-MM-DD, "
+                f"got {date_part!r}."
+            )
+        return f"{date_part}@{_normalize_reminder_time(time_part)}"
+
+    if reminder_time:
+        if not when or not _is_date_like_when(when):
+            raise ValueError(
+                f"reminder_time requires a date-like 'when' (today, tomorrow, or "
+                f"YYYY-MM-DD). Reminders cannot be attached to {when!r}. "
+                "Use 'deadline' for a hard due date instead."
+            )
+        return f"{when}@{_normalize_reminder_time(reminder_time)}"
+
+    return when
 
 
 class DispatchOutcome(Enum):
