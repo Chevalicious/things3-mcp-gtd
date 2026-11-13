@@ -1,6 +1,6 @@
 [project]
 name = "things3-mcp-gtd"
-version = "2.0.0"
+version = "2.0.1"
 description = "Local MCP server for Things 3 on macOS"
 readme = "README.md"
 requires-python = ">=3.12"

@@ -4,7 +4,7 @@ Connect Things 3 to the user's chosen AI app on their Mac. Explain user actions 
 
 ## Release target
 
-Install the released `things3-mcp-gtd==2.0.0` package from PyPI. The executable is `things3-mcp`; Python 3.12 or newer is required. Source and documentation: https://github.com/Chevalicious/things3-mcp-gtd/tree/v2.0.0. Do not silently substitute a different version or development branch.
+Install the released `things3-mcp-gtd==2.0.1` package from PyPI. The executable is `things3-mcp`; Python 3.12 or newer is required. Source and documentation: https://github.com/Chevalicious/things3-mcp-gtd/tree/v2.0.1. Do not silently substitute a different version or development branch.
 
 ## Inspect first
 
@@ -19,7 +19,7 @@ Install the released `things3-mcp-gtd==2.0.0` package from PyPI. The executable 
 For a new installation with uv available:
 
 ```sh
-uv tool install --python 3.13 'things3-mcp-gtd==2.0.0'
+uv tool install --python 3.13 'things3-mcp-gtd==2.0.1'
 ```
 
 If uv is missing, use its [official installation instructions](https://docs.astral.sh/uv/getting-started/installation/). Don't use sudo or force-replace an existing tool. Resolve an installation conflict with the user before replacing their working environment.
