@@ -1,4 +1,4 @@
-![Things 3 MCP — a little clarity for your day.](docs/images/intro.svg)
+![Things 3 + your AI.](docs/images/intro.svg)
 
 # A little help with everything on your list.
 
