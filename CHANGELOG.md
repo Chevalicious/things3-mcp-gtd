@@ -5,7 +5,9 @@ All notable changes to **things3-mcp-gtd** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0] - 2026-11-13
+## [2.0.1] - 2026-11-13
+
+Published as 2.0.1 because PyPI already contains a different historical 2.0.0 package. These are the changes in the tested 2.0 release.
 
 ### Added
 
@@ -89,6 +91,6 @@ Based on the original [things-mcp](https://github.com/hald/things-mcp) by Harald
 Built with [FastMCP](https://gofastmcp.com) by Jonathan Lowin.
 GTD methodology by David Allen.
 
-[2.0.0]: https://github.com/Chevalicious/things3-mcp-gtd/releases/tag/v2.0.0
+[2.0.1]: https://github.com/Chevalicious/things3-mcp-gtd/releases/tag/v2.0.1
 [1.0.1]: https://github.com/Chevalicious/things3-mcp-gtd/releases/tag/v1.0.1
 [1.0.0]: https://github.com/Chevalicious/things3-mcp-gtd/releases/tag/v1.0.0

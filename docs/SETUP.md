@@ -15,10 +15,10 @@ Already running Things MCP? Use the agent guide to review your setup first. Pres
 Open **Terminal**. Run:
 
 ```sh
-uv tool install --python 3.13 'things3-mcp-gtd==2.0.0'
+uv tool install --python 3.13 'things3-mcp-gtd==2.0.1'
 ```
 
-This installs version 2.0.0. If an installation already exists, review it before replacing anything.
+This installs version 2.0.1. If an installation already exists, review it before replacing anything.
 
 Find the installed command:
 
@@ -82,7 +82,7 @@ Creating missing tags, creating areas, and moving tasks to Trash have separate o
 | What you see | What to check |
 | --- | --- |
 | `uv: command not found` | Follow the uv installation link, then reopen Terminal. |
-| Package download fails | Check your internet connection and that version 2.0.0 is available on PyPI. |
+| Package download fails | Check your internet connection and that version 2.0.1 is available on PyPI. |
 | Tool already installed | Review its version, clients, and services before replacing it. |
 | App can't find the command | Use the full executable path. |
 | Connection works but tasks fail | Check the launching app's macOS access to the Things container. |
