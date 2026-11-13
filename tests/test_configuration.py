@@ -21,10 +21,12 @@ class TestConfiguration:
         assert settings.things_mcp_transport == "streamable-http"
 
     def test_transport_mode_validation(self):
-        """Only streamable-http transport mode should be valid."""
+        """Support stdio and Streamable HTTP."""
         # Valid mode
         settings = Settings(things_mcp_transport="streamable-http")
         assert settings.things_mcp_transport == "streamable-http"
+
+        assert Settings(things_mcp_transport="stdio").things_mcp_transport == "stdio"
 
         # Invalid modes should raise ValidationError
         with pytest.raises(ValidationError):
@@ -69,27 +71,3 @@ class TestConfiguration:
 
         settings = Settings(things_auth_token="")
         assert settings.has_auth_token is False
-
-    def test_retry_configuration(self):
-        """Retry configuration should be validated."""
-        # Valid retry attempts
-        settings = Settings(retry_attempts=3)
-        assert settings.retry_attempts == 3
-
-        # Invalid retry attempts
-        with pytest.raises(ValidationError):
-            Settings(retry_attempts=0)  # Too low
-
-        with pytest.raises(ValidationError):
-            Settings(retry_attempts=11)  # Too high
-
-        # Valid retry delay
-        settings = Settings(retry_delay=1.0)
-        assert settings.retry_delay == 1.0
-
-        # Invalid retry delay
-        with pytest.raises(ValidationError):
-            Settings(retry_delay=0.05)  # Too low
-
-        with pytest.raises(ValidationError):
-            Settings(retry_delay=31.0)  # Too high

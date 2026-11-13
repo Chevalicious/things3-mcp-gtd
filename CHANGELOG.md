@@ -1,9 +1,46 @@
 # Changelog
 
-All notable changes to **things3-mcp-gtd** will be documented in this file.
+All notable changes to **things3-mcp-gtd** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [2.0.0] - 2026-11-13
+
+### Added
+
+- Local stdio transport and a neutral `things3-mcp` command. The `things3-mcp-gtd` command still works.
+- `THINGS_MCP_READ_ONLY` mode, which hides and blocks every tool that writes or opens Things.
+- `move-task`: ID-based moves into areas, projects, and headings, with destination readback. Project listings can show heading IDs.
+- `capture-tasks`: Inbox batches of up to 10 rows with per-row readback and no automatic replay.
+- Item IDs and bounded database readback for captures, scheduled tasks, new projects, and completed tasks.
+- Optional OAuth transport for remote MCP clients using the owner's GitHub login. It defaults to read-only.
+- Compatibility tools for canceling tasks, filing tasks by name, and checking database access. Local area creation and Trash are opt-in.
+
+### Changed
+
+- Task lists and search return compact rows by default; pass `include_details` for notes, tags, checklists, and a local Things link.
+- Creating missing tags is opt-in (`THINGS_MCP_ALLOW_TAG_CREATION`). Startup, reads, ordinary writes, and use of existing tags no longer use AppleScript or request Automation permission.
+- Tool descriptions and server instructions no longer assume a workflow methodology. Tool names and arguments are unchanged.
+- Setup starts with a client-agnostic README, agent-assisted installation prompt, and a short manual guide.
+- The default test suite no longer needs the Things app, and live-test cleanup only targets recorded IDs.
+
+### Removed
+
+- Legacy OAuth that exposed the Things URL token, and direct non-loopback HTTP binding. Local HTTP uses an optional separate bearer credential and validates Host and Origin.
+- Client-specific integration guides, the LaunchAgent template, and the Smithery manifest.
+- The generic `server` console command.
+- Unused retry settings, the on-disk failed-operation queue, and the remote server icon.
+
+### Fixed
+
+- Combined search filters and project/area scheduling.
+- Weekly reviews fetch project tasks in one query.
+
+### Security
+
+- Full Things URLs, which can contain the auth token and task text, are no longer logged.
+- Writes are never retried after an uncertain handoff.
 
 ## [1.0.1] - 2026-05-10
 
@@ -52,5 +89,6 @@ Based on the original [things-mcp](https://github.com/hald/things-mcp) by Harald
 Built with [FastMCP](https://gofastmcp.com) by Jonathan Lowin.
 GTD methodology by David Allen.
 
+[2.0.0]: https://github.com/Chevalicious/things3-mcp-gtd/releases/tag/v2.0.0
 [1.0.1]: https://github.com/Chevalicious/things3-mcp-gtd/releases/tag/v1.0.1
 [1.0.0]: https://github.com/Chevalicious/things3-mcp-gtd/releases/tag/v1.0.0

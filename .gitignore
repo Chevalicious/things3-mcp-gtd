@@ -195,18 +195,11 @@ test-results/*.md
 test-results/*.json
 !test-results/.gitkeep
 
-# Runtime data files
-things_dlq.json
-
 # Local agent / scratch state
-.openclaw/
 local.env
 secrets.env
 .envrc
 
-# Per-user copies of the LaunchAgent plist; only the .example template is tracked
-deploy/launchagents/*.plist
-!deploy/launchagents/*.plist.example
-
-# Local infrastructure notes (not for public repo)
+# Local-only working notes
 AGENTS.md
+RERELEASE-HANDOFF.md

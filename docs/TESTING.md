@@ -1,146 +1,22 @@
-# Testing Guide
+# Testing with Things 3
 
-This document describes the test suite for the Things MCP server.
+The default `uv run --locked pytest` suite does not access your Things data. For a live, non-mutating check, start the client in read-only mode and call `get-tasks` or `get-projects`.
 
-## Test Structure
+The live tests make real changes, including creating tags. Run them only in a disposable macOS/Things profile with Things URLs enabled and the Things token set in the environment:
 
-### Layout
-
-| File | Focus | Markers |
-|------|--------|---------|
-| `tests/conftest.py` | Shared fixtures, mock data, `mcp_server_process`, `mcp_client` | — |
-| `tests/mcp_client.py` | Lightweight MCP client for streamable-http tests | — |
-| `tests/pytest_test_results.py` | Pytest plugin that writes `test-results/test-results.md` | — |
-
-### Unit tests (no real server or Things 3)
-
-| File | Focus |
-|------|--------|
-| `test_accept_headers.py` | Accept-header middleware |
-| `test_configuration.py` | Settings and validation |
-| `test_mcp_protocol.py` | JSON-RPC and protocol shape |
-| `test_schema_transforms.py` | Schema transforms (anyOf, etc.) |
-| `test_transport_endpoints.py` | Transport endpoint configuration |
-| `test_transport_smoke.py` | Transport and lifespan smoke |
-
-### Integration tests (may start server, no Things 3)
-
-| File | Focus |
-|------|--------|
-| `test_lifespan.py` | Lifespan startup and shutdown |
-| `test_mcp_streamable_http.py` | Streamable-http and MCP client |
-| `test_server_startup.py` | Server subprocess and `/mcp` endpoint |
-
-### Real integration tests (Things 3 required)
-
-Run only locally or in deployment where Things 3 is available. **Never run in CI** (Things 3 is not available there).
-
-| File | Focus |
-|------|--------|
-| `test_gtd_workflow.py` | GTD workflows against Things 3 |
-| `test_mcp_crud_integration.py` | CRUD via MCP against Things 3 |
-
-## Test Markers
-
-Defined in `pytest.ini`:
-
-- **`unit`** – Fast unit tests with mocked dependencies (CI-safe).
-- **`integration`** – Multi-step or server-involved tests (may be mocked).
-- **`real`** – Requires Things 3 (local/deployment only; excluded by default).
-- **`slow`** – May take longer; exclude with `-m "not slow"`.
-
-**Default run:** `pytest tests` excludes `real` (via `addopts = -m "not real"`), so the default is CI-safe.
-
-## When Tests Run
-
-### Default (CI and pre-commit)
-
-- **`uv run python -m pytest tests`** or **`uv run test`** runs all tests **except** `real`.
-- This is the default and is safe for CI and pre-commit (Things 3 is not required).
-
-### Pre-commit hooks
-
-On `git commit`, when relevant files change:
-
-1. **Unit tests** – `pytest tests -m "not real and not integration"` when `tests/**/*.py` or `src/things_mcp/**/*.py` change.
-2. **Smoke test** – `scripts/smoke_test.py` when `src/things_mcp/**/*.py` change.  
-   The script checks whether Things 3 is available on the host (`is_things_running()`). If not, it exits 0 and skips; the hook does not block the commit.
-
-### CI (GitHub Actions)
-
-- Lint: `ruff check .` and `ruff format --check .`
-- Tests: `pytest tests` (same as default; excludes `real`).
-
-### Local / deployment (with Things 3)
-
-- **Real integration tests only:**  
-  `uv run python -m pytest tests -m real`
-- **All tests including real:**  
-  Override the default marker so `real` is not excluded:  
-  `uv run python -m pytest tests -o addopts="-v --tb=short --strict-markers --asyncio-mode=auto"`
-
-## Running Tests
-
-### CI-safe (default)
-
-```bash
-uv run python -m pytest tests
-# or
-uv run test
+```sh
+THINGS_MCP_LIVE_TESTS=1 THINGS_MCP_ALLOW_TAG_CREATION=true uv run --locked pytest -m real
 ```
 
-### Unit tests only (fastest)
+Live cleanup only targets recorded test IDs. A failed test or delayed write can leave a test item behind; clean it up in the app on the disposable profile. Don't run live tests against your regular task library.
 
-```bash
-uv run python -m pytest tests -m "not real and not integration"
-```
 
-### Real integration tests only (Things 3 required)
+For a targeted smoke test with a clean wheel, use a uniquely named disposable project, heading, and Inbox to-do. Keep tag creation disabled. Use two fresh stdio client sessions: capture the to-do, move it by ID into an area and project, reconnect, then move it into the heading and back to the project root. Check the returned ID and inspect the destination in Things. Move the disposable project and its tasks to Trash after testing; do not empty Trash. Verify separately that the installed HTTP command challenges unauthenticated requests, rejects foreign origins, and hides and blocks write tools in read-only mode.
 
-```bash
-uv run python -m pytest tests -m real
-```
+## Compact reads and Inbox batch receipts
 
-### With coverage
+Run the default suite on Python 3.12 and 3.14. The MCP regressions use synthetic notes, checklist rows, and tags. They check compact and detailed text, heading IDs, note matching, one create-only URL, malformed or oversized batches, unknown tags, partial readback, ambiguous matches, uncertain handoff, and the read-only gate.
 
-```bash
-uv run python -m pytest tests --cov=src/things_mcp --cov-report=term-missing
-```
+Build a wheel and install it into a fresh environment on each Python version. Start its installed `things3-mcp` command over stdio and loopback HTTP. Initialize each transport, list tools, and call `get-cache-stats`. In read-only mode verify `capture-tasks` is absent and a direct call is rejected. With a separate HTTP bearer token, verify the bearer challenge and rejection of foreign Host and Origin headers.
 
-## Test Results History
-
-When the `pytest_test_results` plugin is loaded (via `conftest.py`), test results are written to `test-results/test-results.md` after each run (last 3 runs). This directory is gitignored.
-
-## Smoke Test (Things 3)
-
-For a quick sanity check with Things 3 running:
-
-```bash
-uv run python scripts/smoke_test.py
-```
-
-The script checks `is_things_running()` first. If Things 3 is not available, it exits 0 and prints a skip message (does not block commits or CI).
-
-## Writing New Tests
-
-### Unit test (CI-safe)
-
-Use `@pytest.mark.unit` and mock external dependencies (things-py, AppleScript, URL scheme). No `real` or `integration` marker.
-
-### Integration test (no Things 3)
-
-Use `@pytest.mark.integration`. May start the server subprocess or use the MCP client against a real server; do not require Things 3.
-
-### Real integration test (Things 3 only)
-
-Use `@pytest.mark.real` and `@pytest.mark.integration`. Require Things 3; use the `test_data_tracker` fixture and `MCP-TEST-`-prefixed data; tests skip if Things 3 is not available.
-
-## Troubleshooting
-
-### Things 3 not available
-
-Real integration tests and the smoke script skip when Things 3 is not running. Start Things 3 and ensure scripting permissions are enabled if you want to run `-m real` or `scripts/smoke_test.py`.
-
-### Test data left in Things 3
-
-Ensure tests use the `test_data_tracker` fixture and the `MCP-TEST-` prefix so cleanup runs. Manually delete any remaining items with that prefix if needed.
+For live verification, keep tag creation off and use two fresh stdio sessions with the same installed client. Capture disposable Inbox rows and compare confirmed IDs with the exact items in Things. Use a uniquely named scheduled to-do to check the reminder date and time, formatted notes, and native checklist in the app. Use a disposable project and heading to verify placement if testing moves. Check for permission prompts on both launches. Move only the verified fixtures to Trash and confirm none remain active.

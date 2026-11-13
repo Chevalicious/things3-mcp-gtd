@@ -5,7 +5,6 @@ import unittest.mock as mock
 from typing import List, Dict, Any, Optional
 import time
 import uuid
-import subprocess
 import sys
 from pathlib import Path
 
@@ -142,7 +141,9 @@ def mock_things(monkeypatch):
     mock_things_module.search = mock.Mock(return_value=[])
 
     # Patch the things module
-    monkeypatch.setattr("things_mcp.fast_server.things", mock_things_module)
+
+    for module in ("tools_tasks", "tools_planning", "tools_reviews", "tools_utility"):
+        monkeypatch.setattr(f"things_mcp.{module}.things", mock_things_module)
     monkeypatch.setattr("things_mcp.formatters.things", mock_things_module)
 
     return mock_things_module
@@ -164,27 +165,15 @@ def mock_applescript(monkeypatch):
 def mock_url_scheme(monkeypatch):
     """Mock URL scheme execution for unit tests."""
     mock_execute_url = mock.Mock(return_value=True)
-    mock_execute_xcallback_url = mock.Mock(return_value=True)
 
     monkeypatch.setattr("things_mcp.url_scheme.execute_url", mock_execute_url)
-    monkeypatch.setattr(
-        "things_mcp.url_scheme.execute_xcallback_url", mock_execute_xcallback_url
-    )
 
-    return {
-        "execute_url": mock_execute_url,
-        "execute_xcallback_url": mock_execute_xcallback_url,
-    }
+    return {"execute_url": mock_execute_url}
 
 
 @pytest.fixture
 def mock_utils(monkeypatch):
     """Mock utility functions for unit tests."""
-    # Mock app_state (used by fast_server.py for checking Things availability)
-    mock_app_state = mock.Mock()
-    mock_app_state.update_app_state = mock.Mock(return_value=True)
-    mock_app_state.wait_for_app_availability = mock.Mock(return_value=True)
-
     # Mock circuit_breaker (used by url_scheme.py)
     mock_circuit_breaker = mock.Mock()
     mock_circuit_breaker.allow_operation = mock.Mock(return_value=True)
@@ -195,12 +184,10 @@ def mock_utils(monkeypatch):
     mock_rate_limiter = mock.Mock()
     mock_rate_limiter.wait_if_needed = mock.Mock()
 
-    monkeypatch.setattr("things_mcp.fast_server.app_state", mock_app_state)
     monkeypatch.setattr("things_mcp.url_scheme.circuit_breaker", mock_circuit_breaker)
     monkeypatch.setattr("things_mcp.url_scheme.rate_limiter", mock_rate_limiter)
 
     return {
-        "app_state": mock_app_state,
         "circuit_breaker": mock_circuit_breaker,
         "rate_limiter": mock_rate_limiter,
     }
@@ -211,35 +198,26 @@ def mock_utils(monkeypatch):
 # ============================================================================
 
 
-def is_things_available() -> bool:
-    """Check if Things 3 is available for real integration tests."""
+@pytest.fixture(scope="session")
+def things_available():
+    """Live writes require a deliberate opt-in on a disposable Things profile."""
+    import os
+    import platform
+    import things
+
+    if os.environ.get("THINGS_MCP_LIVE_TESTS") != "1" or platform.system() != "Darwin":
+        return False
     try:
-        result = subprocess.run(
-            [
-                "osascript",
-                "-e",
-                'tell application "System Events" to (name of processes) contains "Things3"',
-            ],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        return result.returncode == 0 and "true" in result.stdout.lower()
-    except Exception:
+        things.todos(count_only=True)
+        return True
+    except (OSError, ValueError):
         return False
 
 
-@pytest.fixture(scope="session")
-def things_available():
-    """Check if Things 3 is available for real integration tests."""
-    return is_things_available()
-
-
 @pytest.fixture(autouse=True)
-def skip_real_tests_if_unavailable(request, things_available):
-    """Skip real integration tests if Things 3 is not available."""
-    if "real" in request.keywords and not things_available:
-        pytest.skip("Things 3 is not available for real integration tests")
+def skip_real_tests_if_unavailable(request):
+    if "real" in request.keywords and not request.getfixturevalue("things_available"):
+        pytest.skip("Live Things tests require THINGS_MCP_LIVE_TESTS=1 and Things 3")
 
 
 class TestDataTracker:
@@ -309,91 +287,6 @@ end tell"""
         self.created_projects.clear()
         self.created_tags.clear()
 
-    def cleanup_all_test_items(self):
-        """Clean up ALL test items matching test prefixes, not just tracked ones.
-
-        This is useful for cleaning up leftover test data from previous test runs.
-        """
-        from things_mcp.applescript_bridge import run_applescript
-
-        # Test prefixes to match (documented here, hardcoded in AppleScript below)
-        _test_prefixes = [
-            "MCP-TEST-TODO",
-            "MCP-TAG-TEST",
-            "MCP-WORKFLOW-UPDATED",
-            "MCP-TEST-TODO-FULL",
-            "MCP-TEST-TODO-COMPLETE",
-            "MCP-TEST-PROJECT",
-        ]
-        _ = _test_prefixes  # Silence unused variable warning (used for documentation)
-
-        try:
-            # Build AppleScript to find and delete all matching todos and projects
-            # Important: Collect IDs first, then delete them (can't delete while iterating)
-            script_parts = ['tell application "Things3"']
-            script_parts.append(
-                '    set testPrefixes to {"MCP-TEST-TODO", "MCP-TAG-TEST", "MCP-WORKFLOW-UPDATED", "MCP-TEST-TODO-FULL", "MCP-TEST-TODO-COMPLETE"}'
-            )
-            script_parts.append("    set todoIds to {}")
-            script_parts.append("    set projectIds to {}")
-            script_parts.append("    ")
-            script_parts.append(
-                "    -- Collect todo IDs (search ALL todos, not just specific lists)"
-            )
-            script_parts.append("    repeat with theTodo in (every to do)")
-            script_parts.append("        set todoName to name of theTodo")
-            script_parts.append("        repeat with prefix in testPrefixes")
-            script_parts.append("            if todoName starts with prefix then")
-            script_parts.append("                set end of todoIds to id of theTodo")
-            script_parts.append("                exit repeat")
-            script_parts.append("            end if")
-            script_parts.append("        end repeat")
-            script_parts.append("    end repeat")
-            script_parts.append("    ")
-            script_parts.append("    -- Collect project IDs")
-            script_parts.append("    repeat with theProject in (every project)")
-            script_parts.append("        set projectName to name of theProject")
-            script_parts.append(
-                '        if projectName starts with "MCP-TEST-PROJECT" then'
-            )
-            script_parts.append("            set end of projectIds to id of theProject")
-            script_parts.append("        end if")
-            script_parts.append("    end repeat")
-            script_parts.append("    ")
-            script_parts.append("    -- Delete todos by ID")
-            script_parts.append("    set deletedCount to 0")
-            script_parts.append("    repeat with todoId in todoIds")
-            script_parts.append("        try")
-            script_parts.append("            set theTodo to to do id todoId")
-            script_parts.append("            delete theTodo")
-            script_parts.append("            set deletedCount to deletedCount + 1")
-            script_parts.append("        end try")
-            script_parts.append("    end repeat")
-            script_parts.append("    ")
-            script_parts.append("    -- Delete projects by ID")
-            script_parts.append("    repeat with projectId in projectIds")
-            script_parts.append("        try")
-            script_parts.append("            set theProject to project id projectId")
-            script_parts.append("            delete theProject")
-            script_parts.append("            set deletedCount to deletedCount + 1")
-            script_parts.append("        end try")
-            script_parts.append("    end repeat")
-            script_parts.append("    ")
-            script_parts.append("    return deletedCount")
-            script_parts.append("end tell")
-
-            script = "\n".join(script_parts)
-            result = run_applescript(script)
-
-            if result and result.isdigit():
-                count = int(result)
-                if count > 0:
-                    print(f"Cleaned up {count} test items")
-            elif result is False:
-                print("Warning: Failed to cleanup all test items")
-        except Exception as e:
-            print(f"Warning: Exception during bulk cleanup: {e}")
-
 
 @pytest.fixture
 def test_data_tracker():
@@ -402,18 +295,6 @@ def test_data_tracker():
     yield tracker
     # Cleanup tracked items after test
     tracker.cleanup()
-
-
-@pytest.fixture(scope="session", autouse=True)
-def cleanup_all_test_items_on_exit():
-    """Session-scoped fixture to cleanup all test items at the end of the test session.
-
-    This ensures any leftover test data from previous runs or failed tests is cleaned up.
-    """
-    yield
-    # Run cleanup at the end of the test session
-    tracker = TestDataTracker()
-    tracker.cleanup_all_test_items()
 
 
 def generate_test_title(prefix: str = "MCP-TEST") -> str:
@@ -428,108 +309,6 @@ def generate_test_title(prefix: str = "MCP-TEST") -> str:
 # ============================================================================
 
 
-# Note: TestClient doesn't work with streamable-http transport because it requires
-# lifespan initialization. We use real server processes for integration tests instead.
-
-
-@pytest.fixture(scope="session")
-def mcp_server_process():
-    """Start MCP server in background for real integration tests.
-
-    Only used for tests that require a real HTTP server (marked with @pytest.mark.real).
-    Most tests should use mcp_test_client fixture instead.
-    """
-    import subprocess
-    import sys
-    import os
-    from pathlib import Path
-
-    # Use the entry point script at project root
-    server_script = Path(__file__).parent.parent / "things_fast_server.py"
-
-    # Set transport to streamable-http only for testing
-    original_transport = os.environ.get("THINGS_MCP_TRANSPORT")
-    os.environ["THINGS_MCP_TRANSPORT"] = "streamable-http"
-
-    # Change to project root for proper imports
-    project_root = Path(__file__).parent.parent
-
-    try:
-        process = subprocess.Popen(
-            [sys.executable, str(server_script)],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            cwd=str(project_root),
-            env=os.environ.copy(),
-        )
-        # Wait for server to start
-        time.sleep(3)
-
-        # Verify server is running
-        if process.poll() is not None:
-            # Server died - check stderr
-            stdout, stderr = process.communicate()
-            pytest.skip(f"Server failed to start: {stderr}")
-
-        yield process
-
-        # Cleanup
-        process.terminate()
-        try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait()
-    finally:
-        # Restore original transport setting
-        if original_transport is not None:
-            os.environ["THINGS_MCP_TRANSPORT"] = original_transport
-        elif "THINGS_MCP_TRANSPORT" in os.environ:
-            del os.environ["THINGS_MCP_TRANSPORT"]
-
-
-@pytest.fixture
-async def mcp_client(mcp_server_process):
-    """Create MCP client connected to real server process.
-
-    Only used for tests marked with @pytest.mark.real.
-    """
-    from tests.mcp_client import create_mcp_client
-    import httpx
-
-    # Wait and verify server is accessible
-    settings = get_settings()
-    base_url = f"http://{settings.things_mcp_host}:{settings.things_mcp_port}"
-
-    # Try to connect with retries
-    max_retries = 10
-    for attempt in range(max_retries):
-        try:
-            async with httpx.AsyncClient() as test_client:
-                # Try POST to /mcp endpoint (GET might return 405)
-                response = await test_client.post(
-                    f"{base_url}/mcp",
-                    json={"jsonrpc": "2.0", "id": "test", "method": "tools/list"},
-                    timeout=2,
-                )
-                # Any response means server is up
-                if response.status_code in [200, 400, 404, 405]:
-                    break
-        except (httpx.ConnectError, httpx.TimeoutException) as e:
-            if attempt < max_retries - 1:
-                time.sleep(0.5)
-                continue
-            pytest.skip(f"Server not accessible after {max_retries} attempts: {e}")
-    else:
-        pytest.skip("Server not accessible")
-
-    client = await create_mcp_client(base_url)
-    yield client
-    await client.close()
-
-
-# ============================================================================
 # Test Utilities
 # ============================================================================
 

@@ -1,89 +1,82 @@
-import logging
 import things
 
-logger = logging.getLogger(__name__)
+from .url_scheme import show
 
 
-def format_todo(todo: dict) -> str:
-    """Helper function to format a single todo into a readable string."""
-    logger.debug(f"Formatting todo: {todo}")
-    todo_text = f"Title: {todo['title']}"
+def format_todo(todo: dict, include_details: bool = False) -> str:
+    """Format a task with enough information to identify and file it."""
+    fields = [f"Title: {todo['title']}", f"UUID: {todo['uuid']}"]
+    if include_details:
+        fields.append(f"Type: {todo['type']}")
+    for key, label in (
+        ("status", "Status"),
+        ("start", "List"),
+        ("start_date", "Start Date"),
+        ("next_instance_start_date", "Next Occurrence"),
+        ("deadline", "Deadline"),
+    ):
+        if todo.get(key):
+            fields.append(f"{label}: {todo[key]}")
 
-    # Add UUID for reference
-    todo_text += f"\nUUID: {todo['uuid']}"
+    for key, label in (
+        ("project", "Project"),
+        ("heading", "Heading"),
+        ("area", "Area"),
+    ):
+        destination_id = todo.get(key)
+        title = todo.get(f"{key}_title")
+        if key == "heading" and destination_id:
+            destination = (
+                f"{title} (ID: {destination_id})" if title else f"ID: {destination_id}"
+            )
+        else:
+            destination = title or destination_id
+        if destination:
+            fields.append(f"{label}: {destination}")
 
-    # Add type
-    todo_text += f"\nType: {todo['type']}"
+    if not include_details:
+        return " · ".join(fields)
 
-    # Add status if present
-    if todo.get("status"):
-        todo_text += f"\nStatus: {todo['status']}"
-
-    # Add start/list location
-    if todo.get("start"):
-        todo_text += f"\nList: {todo['start']}"
-
-    # Add dates
-    if todo.get("start_date"):
-        todo_text += f"\nStart Date: {todo['start_date']}"
-    if todo.get("deadline"):
-        todo_text += f"\nDeadline: {todo['deadline']}"
-    if todo.get("stop_date"):  # Completion date
-        todo_text += f"\nCompleted: {todo['stop_date']}"
-
-    # Add notes if present
-    if todo.get("notes"):
-        todo_text += f"\nNotes: {todo['notes']}"
-
-    # Add project info if present
-    if todo.get("project"):
-        try:
-            project = things.get(todo["project"])
-            if project:
-                todo_text += f"\nProject: {project['title']}"
-        except Exception:
-            pass
-
-    # Add area info if present
-    if todo.get("area"):
-        try:
-            area = things.get(todo["area"])
-            if area:
-                todo_text += f"\nArea: {area['title']}"
-        except Exception:
-            pass
-
-    # Add tags if present
+    for key, label in (
+        ("stop_date", "Completed"),
+        ("reminder_time", "Reminder"),
+        ("notes", "Notes"),
+    ):
+        if todo.get(key):
+            fields.append(f"{label}: {todo[key]}")
     if todo.get("tags"):
-        todo_text += f"\nTags: {', '.join(todo['tags'])}"
+        fields.append(f"Tags: {', '.join(todo['tags'])}")
 
-    # Add checklist if present and contains items
-    if isinstance(todo.get("checklist"), list):
-        todo_text += "\nChecklist:"
-        for item in todo["checklist"]:
+    checklist = todo.get("checklist")
+    if checklist is True or checklist == 1:
+        checklist = things.checklist_items(todo["uuid"])
+    if isinstance(checklist, list):
+        fields.append("Checklist:")
+        for item in checklist:
             status = "✓" if item["status"] == "completed" else "□"
-            todo_text += f"\n  {status} {item['title']}"
+            fields.append(f"  {status} {item['title']}")
 
-    return todo_text
+    if todo["type"] == "to-do":
+        fields.append(f"[Open in Things]({show(id=todo['uuid'])})")
+
+    return "\n".join(fields)
 
 
 def format_project(project: dict, include_items: bool = False) -> str:
     """Helper function to format a single project."""
     project_text = f"Title: {project['title']}\nUUID: {project['uuid']}"
 
-    if project.get("area"):
-        try:
-            area = things.get(project["area"])
-            if area:
-                project_text += f"\nArea: {area['title']}"
-        except Exception:
-            pass
-
-    if project.get("notes"):
-        project_text += f"\nNotes: {project['notes']}"
+    if area := project.get("area_title") or project.get("area"):
+        project_text += f"\nArea: {area}"
 
     if include_items:
-        todos = things.todos(project=project["uuid"])
+        items = things.tasks(project=project["uuid"])
+        headings = [item for item in items if item.get("type") == "heading"]
+        if headings:
+            project_text += "\n\nHeadings:"
+            for heading in headings:
+                project_text += f"\n- {heading['title']} (ID: `{heading['uuid']}`)"
+        todos = [item for item in items if item.get("type") == "to-do"]
         if todos:
             project_text += "\n\nTasks:"
             for todo in todos:
@@ -95,9 +88,6 @@ def format_project(project: dict, include_items: bool = False) -> str:
 def format_area(area: dict, include_items: bool = False) -> str:
     """Helper function to format a single area."""
     area_text = f"Title: {area['title']}\nUUID: {area['uuid']}"
-
-    if area.get("notes"):
-        area_text += f"\nNotes: {area['notes']}"
 
     if include_items:
         projects = things.projects(area=area["uuid"])

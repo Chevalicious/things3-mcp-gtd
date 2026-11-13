@@ -33,15 +33,3 @@ repos:
         stages: [pre-commit]
         verbose: true
         always_run: false
-
-      # Smoke test - runs only when Things 3 is available on the host
-      # Script checks is_things_running() and exits 0 (skip) when not available
-      - id: smoke-test
-        name: Smoke Test (Things 3 integration)
-        entry: uv run python scripts/smoke_test.py
-        language: system
-        pass_filenames: false
-        files: ^src/things_mcp/.*\.py$
-        stages: [pre-commit]
-        verbose: true
-        always_run: false

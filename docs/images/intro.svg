@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">Things 3 + your AI</title>
+  <desc id="desc">A blue conversation bubble connects to three checked tasks on a warm paper background.</desc>
+  <rect width="1200" height="360" rx="24" fill="#f4f1e9"/>
+  <circle cx="1100" cy="10" r="260" fill="#e6ecdd"/>
+  <g fill="#172b27" font-family="Arial, Helvetica, sans-serif" font-size="76" font-weight="700" letter-spacing="2">
+    <text x="64" y="154">THINGS 3</text>
+    <text x="64" y="250">+ YOUR AI</text>
+  </g>
+  <rect x="720" y="66" width="398" height="239" rx="18" fill="#fffdf8" stroke="#d5d9cd"/>
+  <rect x="686" y="40" width="232" height="61" rx="18" fill="#245bcf"/>
+  <path d="M708 96v18l23-18" fill="#245bcf"/>
+  <text x="711" y="78" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="19">What's on for today?</text>
+  <g fill="none" stroke="#4f775d" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="755" y="136" width="25" height="25" rx="7"/><path d="m761 148 5 5 9-11"/>
+    <rect x="755" y="191" width="25" height="25" rx="7"/>
+    <rect x="755" y="246" width="25" height="25" rx="7"/>
+  </g>
+  <g fill="#344c42" font-family="Arial, Helvetica, sans-serif" font-size="21">
+    <text x="800" y="157">Find your focus</text><text x="800" y="212">Capture an idea</text><text x="800" y="267">Make a little progress</text>
+  </g>
+</svg>

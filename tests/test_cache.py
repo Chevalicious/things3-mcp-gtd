@@ -247,7 +247,7 @@ class TestCacheUtilities:
 
         invalidate_caches_for(["op_a"])
 
-        # op_a should be gone (if prefix-based invalidation matches)
+        assert _cache.get("op_a") is None
         # op_b should still exist
         assert _cache.get("op_b") == "val_b"
 

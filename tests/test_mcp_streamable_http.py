@@ -1,312 +1,146 @@
-"""Integration tests for streamable-http transport compliance.
+"""Exercise the real ASGI transport without a port or Things data."""
 
-Tests verify MCP streamable-http transport works correctly with n8n and ChatGPT
-compatibility requirements. Focuses on protocol-level testing through actual
-HTTP requests.
-
-Uses TestClient for faster tests (no subprocess overhead) and real server
-for tests requiring Things 3 integration.
-"""
+import json
 
 import pytest
-import time
+from starlette.testclient import TestClient
 
-from tests.conftest import generate_test_title
+from things_mcp.fast_server import _create_combined_app, mcp
+from things_mcp.settings import Settings
+
+TOKEN = "test-only-http-credential-123456789"
+ACCEPT = {"Accept": "application/json, text/event-stream"}
 
 
-@pytest.mark.integration
-class TestStreamableHTTPTransport:
-    """Test streamable-http transport compliance and client compatibility."""
+def client(**settings):
+    from unittest.mock import patch
 
-    @pytest.mark.asyncio
-    async def test_tool_discovery(self, mcp_client):
-        """Test tool discovery via streamable-http."""
-        response = await mcp_client.list_tools()
+    with patch(
+        "things_mcp.fast_server.get_settings",
+        return_value=Settings(_env_file=None, **settings),
+    ):
+        app = _create_combined_app(mcp, "streamable-http")
+    return TestClient(app, base_url="http://127.0.0.1:8009")
 
-        assert "result" in response
-        assert "tools" in response["result"]
-        assert isinstance(response["result"]["tools"], list)
-        assert len(response["result"]["tools"]) > 0
 
-        # Verify tool structure
-        tool = response["result"]["tools"][0]
-        assert "name" in tool
-        assert "description" in tool
-        assert "inputSchema" in tool
+def post(http, method, params=None, headers=None, request_id=1):
+    body = {"jsonrpc": "2.0", "method": method}
+    if request_id is not None:
+        body["id"] = request_id
+    if params is not None:
+        body["params"] = params
+    return http.post("/mcp", json=body, headers=ACCEPT | (headers or {}))
 
-    @pytest.mark.asyncio
-    async def test_tool_discovery_response_format(self, mcp_client):
-        """Test tool discovery response format validation."""
-        response = await mcp_client.list_tools()
 
-        # Verify JSON-RPC structure
-        assert response["jsonrpc"] == "2.0"
-        assert "id" in response
-        assert "result" in response
+def payload(response):
+    assert response.status_code == 200, response.text
+    if response.headers["content-type"].startswith("application/json"):
+        return response.json()
+    for line in response.text.splitlines():
+        if line.startswith("data: "):
+            message = json.loads(line[6:])
+            if "id" in message:
+                return message
+    pytest.fail("No JSON-RPC response in the event stream")
 
-        # Verify tools array structure
-        tools = response["result"]["tools"]
-        for tool in tools:
-            assert "name" in tool
-            assert "description" in tool
-            assert "inputSchema" in tool
-            # Verify schema is a dict
-            assert isinstance(tool["inputSchema"], dict)
 
-    @pytest.mark.asyncio
-    async def test_tool_invocation_required_params(self, mcp_client):
-        """Test tool invocation with only required parameters."""
-        # Use a read-only tool that doesn't require Things 3
-        response = await mcp_client.call_tool("get-cache-stats", arguments={})
+def initialize(http, headers=None):
+    headers = dict(headers or {})
+    response = post(
+        http,
+        "initialize",
+        {
+            "protocolVersion": "2025-03-26",
+            "capabilities": {},
+            "clientInfo": {"name": "test-client", "version": "1"},
+        },
+        headers,
+    )
+    headers["MCP-Session-Id"] = response.headers["mcp-session-id"]
+    headers["MCP-Protocol-Version"] = payload(response)["result"]["protocolVersion"]
+    assert (
+        post(
+            http, "notifications/initialized", headers=headers, request_id=None
+        ).status_code
+        == 202
+    )
+    return headers
 
-        assert "result" in response
-        assert "content" in response["result"]
-        assert isinstance(response["result"]["content"], list)
 
-    @pytest.mark.asyncio
-    async def test_tool_invocation_optional_params(self, mcp_client):
-        """Test tool invocation with optional parameters."""
-        # Use get-cache-stats (no required params, small response) to avoid SSE streaming issues
-        response = await mcp_client.call_tool("get-cache-stats", arguments={})
-
-        assert "result" in response
-        assert "content" in response["result"]
-
-    @pytest.mark.asyncio
-    async def test_tool_invocation_invalid_tool_name(self, mcp_client):
-        """Test error handling for invalid tool name."""
-        with pytest.raises(ValueError) as exc_info:
-            await mcp_client.call_tool("invalid-tool-name", arguments={})
-
+def test_full_authenticated_protocol():
+    with client(things_mcp_http_token=TOKEN, things_mcp_require_auth=True) as http:
+        assert post(http, "initialize").status_code == 401
         assert (
-            "Tool call failed" in str(exc_info.value)
-            or "error" in str(exc_info.value).lower()
+            post(
+                http, "initialize", headers={"Authorization": "Bearer wrong"}
+            ).status_code
+            == 401
         )
-
-    @pytest.mark.asyncio
-    async def test_tool_invocation_invalid_parameters(self, mcp_client):
-        """Test error handling for invalid parameters."""
-        # Try to call a tool with wrong parameter types
-        with pytest.raises(ValueError) as exc_info:
-            await mcp_client.call_tool("get-tasks", arguments={"project_uuid": 12345})
-
-        # Should get validation error
-        assert "error" in str(exc_info.value).lower() or "Tool call failed" in str(
-            exc_info.value
-        )
-
-    @pytest.mark.asyncio
-    async def test_n8n_extra_params_stripped(self, mcp_client):
-        """Test n8n extra parameters are stripped correctly."""
-        # Call tool with n8n-specific extra params - should work
-        response = await mcp_client.call_tool_with_n8n_params(
-            "get-cache-stats", arguments={}
-        )
-
-        assert "result" in response
-        # Tool should execute successfully despite extra params
-        assert "content" in response["result"]
-
-    @pytest.mark.asyncio
-    async def test_n8n_null_values_handled(self, mcp_client):
-        """Test n8n null values are handled correctly."""
-        # Call tool with no args (optional params omitted); small response for reliable SSE parse
-        response = await mcp_client.call_tool("get-cache-stats", arguments={})
-
-        assert "result" in response
-        assert "content" in response["result"]
-
-    @pytest.mark.asyncio
-    async def test_n8n_anyof_schema_flattening(self, mcp_client):
-        """Test anyOf schema flattening for n8n compatibility."""
-        response = await mcp_client.list_tools()
-
-        tools = response["result"]["tools"]
-        # Find a tool with optional parameters (likely to have anyOf)
-        tool_with_optional = None
-        for tool in tools:
-            schema = tool.get("inputSchema", {})
-            props = schema.get("properties", {})
-            if props:
-                # Check if any property has type array (flattened anyOf)
-                for prop_schema in props.values():
-                    if isinstance(prop_schema.get("type"), list):
-                        tool_with_optional = tool
-                        break
-                if tool_with_optional:
-                    break
-
-        # Verify schemas don't have anyOf (should be flattened)
-        for tool in tools:
-            schema = tool.get("inputSchema", {})
-            assert "anyOf" not in str(schema), (
-                f"Tool {tool['name']} still has anyOf in schema"
+        headers = initialize(http, {"Authorization": f"Bearer {TOKEN}"})
+        tools = payload(post(http, "tools/list", headers=headers))["result"]["tools"]
+        assert {"get-cache-stats", "capture-task", "capture-tasks", "move-task"} <= {
+            tool["name"] for tool in tools
+        }
+        result = payload(
+            post(
+                http,
+                "tools/call",
+                {
+                    "name": "get-cache-stats",
+                    "arguments": {"sessionId": "client-extra"},
+                },
+                headers,
             )
-
-    @pytest.mark.asyncio
-    async def test_chatgpt_additional_properties(self, mcp_client):
-        """Test ChatGPT compatibility: additionalProperties: false in schemas."""
-        response = await mcp_client.list_tools()
-
-        tools = response["result"]["tools"]
-        for tool in tools:
-            schema = tool.get("inputSchema", {})
-            # Check if schema has properties (object type)
-            if "properties" in schema:
-                assert schema.get("additionalProperties") is False, (
-                    f"Tool {tool['name']} missing additionalProperties: false"
-                )
-
-                # Check nested objects
-                for prop_schema in schema.get("properties", {}).values():
-                    if isinstance(prop_schema, dict) and "properties" in prop_schema:
-                        assert prop_schema.get("additionalProperties") is False, (
-                            f"Tool {tool['name']} nested object missing additionalProperties: false"
-                        )
-
-    @pytest.mark.asyncio
-    async def test_standard_client_optional_fields(self, mcp_client):
-        """Test that non-ChatGPT clients get standard schemas with optional fields.
-
-        ChatGPT strict-mode transforms (all-fields-required, additionalProperties:false)
-        are only applied when a ChatGPT User-Agent is detected. Standard clients should
-        get normal JSON Schema where optional parameters are NOT in the required array.
-        """
-        response = await mcp_client.list_tools()
-
-        tools = response["result"]["tools"]
-        # Find a tool that has optional parameters (e.g., get-tasks)
-        get_tasks = next((t for t in tools if t["name"] == "get-tasks"), None)
-        assert get_tasks is not None, "get-tasks tool not found"
-
-        schema = get_tasks.get("inputSchema", {})
-        props = set(schema.get("properties", {}).keys())
-        required = set(schema.get("required", []))
-
-        # Standard clients should NOT have all fields required
-        # get-tasks has many optional params (view, context, energy, etc.)
-        assert props != required, (
-            "Standard client should not get ChatGPT strict-mode schemas "
-            "(all fields required). Only ChatGPT clients should."
-        )
-        # anyOf should still be flattened for all clients
-        for prop_schema in schema.get("properties", {}).values():
-            assert "anyOf" not in prop_schema, (
-                "anyOf should be flattened to type arrays for all clients"
-            )
-
-    @pytest.mark.asyncio
-    async def test_accept_header_wildcard_support(self, mcp_client):
-        """Test Accept header wildcard support."""
-        # Test that wildcard Accept header works
-        # The client already uses proper Accept headers, so this test verifies
-        # the server accepts requests with wildcard headers
-        response = await mcp_client.list_tools()
-        assert "result" in response
-        assert "tools" in response["result"]
-
-    @pytest.mark.real
-    @pytest.mark.asyncio
-    async def test_crud_create_todo(self, mcp_client, test_data_tracker):
-        """Test CRUD: create todo via streamable-http."""
-        title = generate_test_title("MCP-TEST-TODO")
-
-        response = await mcp_client.call_tool(
-            "add-todo",
-            arguments={
-                "title": title,
-                "notes": "Test notes",
-                "when": "today",
-            },
+        )["result"]
+        assert not result.get("isError")
+        assert "Cache Statistics" in result["content"][0]["text"]
+        assert http.post("/token", headers=headers).status_code == 404
+        assert (
+            http.get(
+                "/.well-known/oauth-authorization-server", headers=headers
+            ).status_code
+            == 404
         )
 
-        assert "result" in response
-        assert "content" in response["result"]
-        content_text = response["result"]["content"][0].get("text", "")
-        assert "Successfully created todo" in content_text or title in content_text
 
-        # Give Things time to process
-        time.sleep(1)
+@pytest.mark.parametrize(
+    ("headers", "status"),
+    [
+        ({"Host": "example.invalid:8009"}, 421),
+        ({"Origin": "https://example.invalid"}, 403),
+        ({"Origin": "null"}, 403),
+    ],
+)
+def test_http_request_boundary(headers, status):
+    with client() as http:
+        assert post(http, "initialize", headers=headers).status_code == status
 
-        # Track for cleanup - find the todo
-        import things
 
-        todos = things.search(title)
-        if todos:
-            test_data_tracker.add_todo(todos[0]["uuid"])
+@pytest.mark.parametrize(
+    "settings",
+    [
+        {"things_mcp_require_auth": True},
+        {"things_mcp_http_token": "short"},
+        {"things_mcp_http_token": TOKEN, "things_auth_token": TOKEN},
+        {"things_mcp_host": "0.0.0.0"},
+    ],
+)
+def test_invalid_http_configuration_fails_closed(settings):
+    with pytest.raises(ValueError):
+        client(**settings)
 
-    @pytest.mark.real
-    @pytest.mark.asyncio
-    async def test_crud_read_todos(self, mcp_client):
-        """Test CRUD: read todos via streamable-http."""
-        response = await mcp_client.call_tool("get-tasks", arguments={})
 
-        assert "result" in response
-        assert "content" in response["result"]
-        assert isinstance(response["result"]["content"], list)
-
-    @pytest.mark.real
-    @pytest.mark.asyncio
-    async def test_crud_update_todo(self, mcp_client, test_data_tracker):
-        """Test CRUD: update todo via streamable-http."""
-        import things
-
-        # Create a todo first
-        title = generate_test_title("MCP-TEST-TODO")
-        await mcp_client.call_tool(
-            "add-todo",
-            arguments={"title": title, "when": "today"},
-        )
-        time.sleep(1)
-
-        # Find the todo
-        todos = things.search(title)
-        assert len(todos) > 0
-        todo_id = todos[0]["uuid"]
-        test_data_tracker.add_todo(todo_id)
-
-        # Update the todo
-        new_title = generate_test_title("MCP-TEST-TODO-UPDATED")
-        response = await mcp_client.call_tool(
-            "update-todo",
-            arguments={"id": todo_id, "title": new_title, "notes": "Updated via MCP"},
-        )
-
-        assert "result" in response
-        content_text = response["result"]["content"][0].get("text", "")
-        assert "Successfully updated todo" in content_text
-
-    @pytest.mark.real
-    @pytest.mark.asyncio
-    async def test_crud_delete_todo(self, mcp_client, test_data_tracker):
-        """Test CRUD: delete/cancel todo via streamable-http."""
-        import things
-
-        # Create a todo first
-        title = generate_test_title("MCP-TEST-TODO")
-        await mcp_client.call_tool(
-            "add-todo",
-            arguments={"title": title, "when": "today"},
-        )
-        time.sleep(1)
-
-        # Find the todo
-        todos = things.search(title)
-        assert len(todos) > 0
-        todo_id = todos[0]["uuid"]
-        test_data_tracker.add_todo(todo_id)
-
-        # Cancel the todo
-        response = await mcp_client.call_tool(
-            "update-todo",
-            arguments={"id": todo_id, "canceled": True},
-        )
-
-        assert "result" in response
-        content_text = response["result"]["content"][0].get("text", "")
-        assert "Successfully updated todo" in content_text
-
-        # Verify cancellation
-        time.sleep(1)
-        todo = things.get(todo_id)
-        assert todo.get("status") == "canceled"
+def test_client_schema_transforms_are_isolated():
+    with client() as http:
+        strict = initialize(http, {"User-Agent": "ChatGPT"})
+        standard = initialize(http)
+        for headers, expect_strict in [(strict, True), (standard, False)]:
+            tools = payload(post(http, "tools/list", headers=headers))["result"][
+                "tools"
+            ]
+            schema = next(t["inputSchema"] for t in tools if t["name"] == "get-tasks")
+            assert (
+                set(schema.get("required", [])) == set(schema["properties"])
+            ) is expect_strict
+            if expect_strict:
+                assert schema.get("additionalProperties") is False

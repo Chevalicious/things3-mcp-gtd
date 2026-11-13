@@ -1,171 +1,186 @@
 import json
 import logging
 import platform
-import random
+import re
 import subprocess
-import time
 import urllib.parse
-import webbrowser
+from enum import Enum, auto
+from threading import Lock
 from typing import Any, Dict, Optional, Union
-from .utils import circuit_breaker, rate_limiter, is_things_running
+from .utils import circuit_breaker, rate_limiter
 
 logger = logging.getLogger(__name__)
+_dispatch_lock = Lock()
 
 
-def launch_things() -> bool:
-    """Launch Things app if not already running.
+# `when` values that carry a date and can therefore hold a timed reminder.
+# Things expresses a reminder as a time component on the `when` date
+# (e.g. `today@18:00`), NOT as a separate URL parameter. `anytime`, `someday`,
+# and `evening` have no attachable clock time.
+_DATE_ONLY_WHEN = {"today", "tomorrow"}
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_TIME_24H_RE = re.compile(r"^(\d{1,2}):(\d{2})$")
+_TIME_12H_RE = re.compile(r"^(\d{1,2})(?::(\d{2}))?\s*([ap]m)$")
+
+
+def _normalize_reminder_time(value: str) -> str:
+    """Normalize a reminder time to Things' 24-hour ``HH:MM`` form.
+
+    Accepts ``"6pm"``, ``"6:30pm"``, ``"18:00"``, ``"14:30"``. Bare hours without
+    am/pm or a colon (e.g. ``"6"``) are rejected as ambiguous.
+
+    Raises:
+        ValueError: If the time cannot be parsed.
+    """
+    raw = value.strip().lower()
+
+    m = _TIME_12H_RE.match(raw)
+    if m:
+        hour = int(m.group(1))
+        minute = int(m.group(2) or 0)
+        meridiem = m.group(3)
+        if not (1 <= hour <= 12) or not (0 <= minute <= 59):
+            raise ValueError(f"Invalid reminder time: {value!r}")
+        if meridiem == "pm" and hour != 12:
+            hour += 12
+        elif meridiem == "am" and hour == 12:
+            hour = 0
+        return f"{hour:02d}:{minute:02d}"
+
+    m = _TIME_24H_RE.match(raw)
+    if m:
+        hour = int(m.group(1))
+        minute = int(m.group(2))
+        if not (0 <= hour <= 23) or not (0 <= minute <= 59):
+            raise ValueError(f"Invalid reminder time: {value!r}")
+        return f"{hour:02d}:{minute:02d}"
+
+    raise ValueError(
+        f"Could not parse reminder time {value!r}. "
+        "Use forms like '6pm', '6:30pm', '18:00', or '14:30'."
+    )
+
+
+def _is_date_like_when(when: str) -> bool:
+    """True if ``when`` is a value that can carry a timed reminder."""
+    return when in _DATE_ONLY_WHEN or bool(_DATE_RE.match(when))
+
+
+def build_when_with_reminder(
+    when: Optional[str],
+    reminder_time: Optional[str] = None,
+    reminder_at: Optional[str] = None,
+) -> Optional[str]:
+    """Compose a Things ``when`` value with an optional timed reminder.
+
+    Things has no standalone reminder parameter. A reminder is a time component on
+    the ``when`` date using ``when=<date>@<time>`` (e.g. ``today@18:00``,
+    ``2026-06-10@14:30``). This helper composes that string.
+
+    Args:
+        when: Base schedule — ``today``, ``tomorrow``, or ``YYYY-MM-DD``. Reminders
+            are only valid on these date-like values, NOT ``anytime``/``someday``/
+            ``evening``.
+        reminder_time: Time to attach to ``when`` (e.g. ``"6pm"``, ``"18:00"``).
+        reminder_at: Pre-composed ``"<date>@<time>"`` string; used as the full
+            ``when`` value (takes precedence over ``when`` + ``reminder_time``).
 
     Returns:
-        bool: True if successful, False otherwise
-    """
-    try:
-        if is_things_running():
-            return True
+        The composed ``when`` string, or the original ``when`` if no reminder was
+        requested.
 
-        subprocess.run(
-            ["open", "-a", "Things3"], capture_output=True, text=True, check=False
+    Raises:
+        ValueError: If a reminder is requested on a non-dated ``when``, if both
+            ``reminder_at`` and ``reminder_time`` are supplied, or if a time/date
+            component is malformed.
+    """
+    if reminder_at and reminder_time:
+        raise ValueError(
+            "Provide either reminder_at (a full 'date@time') or reminder_time "
+            "(combined with 'when'), not both."
         )
 
-        # Give Things time to launch
-        time.sleep(2)
+    if reminder_at:
+        if "@" not in reminder_at:
+            raise ValueError(
+                f"reminder_at must be a 'date@time' string (e.g. '2026-06-10@14:30'), "
+                f"got {reminder_at!r}."
+            )
+        date_part, time_part = reminder_at.split("@", 1)
+        date_part = date_part.strip()
+        if not _is_date_like_when(date_part):
+            raise ValueError(
+                f"reminder_at date must be 'today', 'tomorrow', or YYYY-MM-DD, "
+                f"got {date_part!r}."
+            )
+        return f"{date_part}@{_normalize_reminder_time(time_part)}"
 
-        return is_things_running()
-    except Exception as e:
-        logger.error(f"Error launching Things: {str(e)}")
-        return False
+    if reminder_time:
+        if not when or not _is_date_like_when(when):
+            raise ValueError(
+                f"reminder_time requires a date-like 'when' (today, tomorrow, or "
+                f"YYYY-MM-DD). Reminders cannot be attached to {when!r}. "
+                "Use 'deadline' for a hard due date instead."
+            )
+        return f"{when}@{_normalize_reminder_time(reminder_time)}"
+
+    return when
 
 
-def _open_url_background(url: str) -> bool:
-    """Attempt to open a URL without bringing the browser to the foreground.
+class DispatchOutcome(Enum):
+    UNSENT = auto()
+    UNCERTAIN = auto()
+    HANDED_OFF = auto()
 
-    Uses ``osascript`` on macOS to execute ``open -g`` so the URL is handled in
-    the background. Returns ``True`` if the AppleScript command succeeded,
-    otherwise ``False``.
-    """
+
+def _open_url_background(url: str, timeout: float) -> DispatchOutcome:
+    """Hand a Things URL to macOS without using a shell."""
     if platform.system() != "Darwin":
-        return False
+        return DispatchOutcome.UNSENT
 
     try:
-        from .applescript_bridge import _run_osascript_safe
-
-        script = f'do shell script "open -g \\"{url}\\""'
-        returncode, _, stderr = _run_osascript_safe(
-            ["osascript", "-e", script], timeout=10
+        result = subprocess.run(
+            ["/usr/bin/open", "-g", "-b", "com.culturedcode.ThingsMac", url],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=timeout,
+            check=False,
         )
-        if returncode != 0:
-            logger.error(f"osascript error: {stderr}")
-            return False
-        return True
-    except FileNotFoundError:
-        logger.warning("osascript not found; falling back to webbrowser")
-        return False
-    except Exception as e:
-        logger.error(f"Error running osascript: {str(e)}")
-        return False
+    except OSError:
+        return DispatchOutcome.UNSENT
+    except subprocess.TimeoutExpired:
+        logger.warning("Could not confirm delivery of the Things command")
+        return DispatchOutcome.UNCERTAIN
+
+    return (
+        DispatchOutcome.HANDED_OFF
+        if result.returncode == 0
+        else DispatchOutcome.UNCERTAIN
+    )
 
 
-def execute_url(url: str, timeout: float = 5.0, retries: int = 2) -> bool:
-    """Execute a Things URL by opening it in the default browser.
-    Returns True if successful, False otherwise.
-
-    Args:
-        url: The Things URL to execute
-        timeout: Timeout in seconds for each attempt (default 5.0)
-        retries: Number of retries on failure (default 2)
-    """
-    # Ensure any + signs in the URL are replaced with %20
-    url = url.replace("+", "%20")
-
-    # Log the URL for debugging
-    logger.debug(f"Executing URL: {url}")
-
-    # Apply rate limiting
-    rate_limiter.wait_if_needed()
-
-    # Check if circuit breaker allows the operation
-    if not circuit_breaker.allow_operation():
-        logger.warning("Circuit breaker is open, blocking operation")
-        return False
-
-    for attempt in range(retries + 1):
-        try:
-            # Check if Things is running, attempt to launch if not
-            if not is_things_running():
-                logger.info("Things is not running, attempting to launch")
-                if not launch_things():
-                    logger.error("Failed to launch Things")
-                    circuit_breaker.record_failure()
-                    return False
-
-            # Execute the URL - prefer osascript in the background on macOS
-            result = _open_url_background(url)
-            if not result:
-                result = webbrowser.open(url)
-
-            if not result:
-                circuit_breaker.record_failure()
-                logger.error(f"Failed to open URL: {url}")
-                if attempt < retries:
-                    # Exponential backoff: 0.5s, 1s, 2s, ...
-                    sleep_time = 0.5 * (2**attempt)
-                    logger.info(
-                        f"Retrying in {sleep_time}s (attempt {attempt + 1}/{retries})"
-                    )
-                    time.sleep(sleep_time)
-                    continue
-                return False
-
-            # Add a small delay to allow Things time to process the command
-            # Add jitter to prevent thundering herd problem
-            delay = 0.5 + random.uniform(0, 0.2)  # 0.5-0.7 seconds
-            time.sleep(delay)
-
+def dispatch_url(url: str, timeout: float = 5.0) -> DispatchOutcome:
+    """Dispatch once, distinguishing a blocked send from uncertain delivery."""
+    if not url.startswith("things:///") or not _dispatch_lock.acquire(timeout=2):
+        return DispatchOutcome.UNSENT
+    try:
+        if not circuit_breaker.allow_operation():
+            return DispatchOutcome.UNSENT
+        rate_limiter.wait_if_needed()
+        outcome = _open_url_background(url.replace("+", "%20"), timeout)
+        if outcome is DispatchOutcome.HANDED_OFF:
             circuit_breaker.record_success()
-            return True
-        except Exception as e:
-            logger.error(f"Failed to execute URL: {url}, Error: {str(e)}")
+        else:
             circuit_breaker.record_failure()
-            if attempt < retries:
-                # Exponential backoff: 0.5s, 1s, 2s, ...
-                sleep_time = 0.5 * (2**attempt)
-                logger.info(
-                    f"Retrying in {sleep_time}s (attempt {attempt + 1}/{retries})"
-                )
-                time.sleep(sleep_time)
-            else:
-                logger.error(f"execute_url failed after {retries} retries: {url}")
-                return False
-
-    return False
+        return outcome
+    finally:
+        _dispatch_lock.release()
 
 
-def execute_xcallback_url(action: str, params: Dict[str, Any]) -> bool:
-    """Execute a Things X-Callback-URL.
-
-    Args:
-        action: The X-Callback action to perform
-        params: Parameters for the action
-
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    # The correct format for Things URLs (no 'x-callback-url/' prefix)
-    base_url = "things:///"
-
-    # Add callback parameters, but only if we need them
-    # For now, avoid using callbacks since we don't have a handler for them
-    callback_params = params.copy()
-
-    # Don't add callback URLs - this avoids the "no application set to open URL" error
-    # If we need callbacks later, we'd need to register a URL handler for our app
-
-    # Construct URL - action is part of the path (not a separate query parameter)
-    url = f"{base_url}{action}?{urllib.parse.urlencode(callback_params)}"
-
-    # Log the URL for debugging
-    logger.debug(f"Executing URL: {url}")
-
-    return execute_url(url)
+def execute_url(url: str, timeout: float = 5.0) -> bool:
+    """Dispatch once. Successful delivery does not confirm that Things applied it."""
+    return dispatch_url(url, timeout) is DispatchOutcome.HANDED_OFF
 
 
 def construct_url(command: str, params: Dict[str, Any]) -> str:
@@ -176,26 +191,16 @@ def construct_url(command: str, params: Dict[str, Any]) -> str:
     # Start with base URL
     url = f"things:///{command}"
 
-    # Get authentication token if needed - applies to all commands to ensure reliability
-    try:
-        # Import here to avoid circular imports
-        from . import config
+    if command in {"update", "update-project"}:
+        from .config import get_things_auth_token
+        from fastmcp.exceptions import ToolError
 
-        # Get token from config system
-        token = config.get_things_auth_token()
-
-        if token:
-            # Add token to all params for consistent behavior
-            params["auth-token"] = token
-            logger.debug(f"Auth token from config used for {command} operation")
-        else:
-            logger.warning(
-                "No Things auth token found in config. URL may not work without a token."
+        token = get_things_auth_token()
+        if not token:
+            raise ToolError(
+                "Set THINGS_AUTH_TOKEN before updating existing Things items."
             )
-            # Note: We continue without a token, which may cause the operation to fail
-    except Exception as e:
-        logger.error(f"Error getting auth token: {str(e)}")
-        # Continue without token - the operation may fail
+        params = {**params, "auth-token": token}
 
     # Standard URL scheme encoding
     if params:
@@ -218,7 +223,7 @@ def construct_url(command: str, params: Dict[str, Any]) -> str:
                         encoded_tags.append(tag_str)
 
                 # Only include non-empty tag lists
-                if encoded_tags:
+                if encoded_tags or not value:
                     # Join with commas - Things expects comma-separated tags without spaces between commas
                     # Use a simple comma with no spacing for maximum compatibility
                     value = ",".join(encoded_tags)
@@ -236,28 +241,7 @@ def construct_url(command: str, params: Dict[str, Any]) -> str:
 
         url += "?" + "&".join(encoded_params)
 
-    logger.debug(f"Constructed Things URL: {url}")
     return url
-
-
-def should_use_json_api() -> bool:
-    """Determine if the JSON API should be used based on Things version."""
-    from .utils import detect_things_version
-
-    version = detect_things_version()
-    if not version:
-        # Default to using JSON API if version can't be determined
-        return True
-
-    try:
-        # Parse version string (e.g., '3.15.4')
-        major, minor, _ = map(int, version.split("."))
-
-        # JSON API is available in Things 3.4+
-        return major > 3 or (major == 3 and minor >= 4)
-    except Exception:
-        # Default to standard URL scheme if version parsing fails
-        return False
 
 
 def add_todo(
@@ -278,7 +262,9 @@ def add_todo(
         "notes": notes,
         "when": when,
         "deadline": deadline,
-        "checklist-items": "\n".join(checklist_items) if checklist_items else None,
+        "checklist-items": "\n".join(checklist_items)
+        if checklist_items is not None
+        else None,
         "list-id": list_id,
         "list": list_title,
         "heading": heading,
@@ -337,6 +323,8 @@ def update_todo(
     append_checklist_items: Optional[list[str]] = None,
     completed: Optional[bool] = None,
     canceled: Optional[bool] = None,
+    list_id: Optional[str] = None,
+    heading_id: Optional[str] = None,
 ) -> str:
     """Construct URL to update an existing todo.
 
@@ -355,6 +343,8 @@ def update_todo(
         append_checklist_items: Items to add at end of checklist
         completed: Mark as completed
         canceled: Mark as canceled
+        list_id: ID of the destination project or area
+        heading_id: ID of a heading within the destination project
     """
     params = {
         "id": id,
@@ -366,7 +356,9 @@ def update_todo(
         "deadline": deadline,
         "tags": tags,
         "add-tags": add_tags,
-        "checklist-items": "\n".join(checklist_items) if checklist_items else None,
+        "checklist-items": "\n".join(checklist_items)
+        if checklist_items is not None
+        else None,
         "prepend-checklist-items": "\n".join(prepend_checklist_items)
         if prepend_checklist_items
         else None,
@@ -375,6 +367,8 @@ def update_todo(
         else None,
         "completed": completed,
         "canceled": canceled,
+        "list-id": list_id,
+        "heading-id": heading_id,
     }
     return construct_url("update", {k: v for k, v in params.items() if v is not None})
 
@@ -599,38 +593,14 @@ def construct_json_url(items: list[Dict[str, Any]]) -> str:
     Returns:
         URL string for the Things JSON API
     """
-    # Get auth token
-    try:
-        from . import config
-
-        token = config.get_things_auth_token()
-    except Exception:
-        token = None
-
     # Serialize to JSON and URL-encode
     json_data = json.dumps(items, separators=(",", ":"))  # Compact JSON
     encoded_data = urllib.parse.quote(json_data, safe="")
 
     # Build URL
     url = f"things:///json?data={encoded_data}"
-    if token:
-        url += f"&auth-token={urllib.parse.quote(token, safe='')}"
-
     logger.debug(f"Constructed JSON URL with {len(items)} items")
     return url
-
-
-def execute_json(items: list[Dict[str, Any]]) -> bool:
-    """Execute a Things JSON API request for bulk operations.
-
-    Args:
-        items: List of to-do, project, or heading objects
-
-    Returns:
-        True if successful, False otherwise
-    """
-    url = construct_json_url(items)
-    return execute_url(url)
 
 
 def add_project_with_tasks(
@@ -644,10 +614,7 @@ def add_project_with_tasks(
     area_id: Optional[str] = None,
     headings: Optional[Dict[str, list[Dict[str, Any]]]] = None,
 ) -> str:
-    """Construct JSON URL to create a project with tasks atomically.
-
-    This uses the JSON API to create a project and its tasks in a single
-    operation, ensuring atomicity.
+    """Construct one JSON request to create a project with its initial tasks.
 
     Args:
         title: Project title
@@ -663,12 +630,9 @@ def add_project_with_tasks(
     Returns:
         URL string for the Things JSON API
     """
-    # Build project items (tasks and headings)
-    items: list[Dict[str, Any]] = []
 
-    # Add tasks without headings first
-    for task in tasks:
-        task_obj = build_todo_object(
+    def build_task(task):
+        return build_todo_object(
             title=task.get("title", ""),
             notes=task.get("notes"),
             when=task.get("when"),
@@ -676,28 +640,15 @@ def add_project_with_tasks(
             tags=task.get("tags"),
             checklist_items=[
                 build_checklist_item(item) if isinstance(item, str) else item
-                for item in task.get("checklist_items", [])
-            ]
-            if task.get("checklist_items")
-            else None,
+                for item in (task.get("checklist_items") or [])
+            ],
         )
-        items.append(task_obj)
 
-    # Add headings with their tasks
-    if headings:
-        for heading_name, heading_tasks in headings.items():
-            # Add the heading
-            items.append(build_heading_object(heading_name))
-            # Add tasks under this heading
-            for task in heading_tasks:
-                task_obj = build_todo_object(
-                    title=task.get("title", ""),
-                    notes=task.get("notes"),
-                    when=task.get("when"),
-                    deadline=task.get("deadline"),
-                    tags=task.get("tags"),
-                )
-                items.append(task_obj)
+    items = [build_task(task) for task in tasks]
+    # Things assigns to-dos to the most recent heading in this array.
+    for heading_name, heading_tasks in (headings or {}).items():
+        items.append(build_heading_object(heading_name))
+        items.extend(build_task(task) for task in heading_tasks)
 
     # Build the project object with all items
     project = build_project_object(

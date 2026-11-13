@@ -1,224 +1,94 @@
-# Things 3 GTD MCP Server
+![Things 3 + your AI.](https://raw.githubusercontent.com/Chevalicious/things3-mcp-gtd/v2.0.0/docs/images/intro.svg)
 
-A **Model Context Protocol (MCP) server** for [Things 3](https://culturedcode.com/things/) that brings Getting Things Done (GTD) methodology to AI assistants. macOS only.
+# A little help with everything on your list.
 
-[![PyPI](https://img.shields.io/pypi/v/things3-mcp-gtd)](https://pypi.org/project/things3-mcp-gtd/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+Find the task you forgot. Turn a rough idea into a project. Make room for what matters today.
 
-## What it is
+**Things 3 MCP connects your AI app to Things on your Mac.** MCP is the connection that lets an AI app use other tools. You don't need to write code to use it.
 
-This server exposes Things 3 to AI assistants (Claude Desktop, Claude Code, Claude Mobile, ChatGPT, n8n, Cursor, OpenClaw) over MCP. The tools are organized around David Allen's five GTD stages — **Capture, Clarify, Organize, Reflect, Engage** — so an assistant can help you *practice GTD*, not just CRUD a task database.
+| Start with a question | Add more when you're ready |
+| --- | --- |
+| “What's on my list today?” | “Add a task to book the appointment.” |
+| “Find my notes about the trip.” | “Plan a project for the move.” |
+| “What deadlines are coming up?” | “Move this task into my weekend project.” |
 
-The shift from "database wrapper" to "GTD assistant" reflects a key insight about MCP design: **tools should match how agents think about problems**, not how the underlying APIs are structured.
+**macOS** · **Things 3** · **Read-only setup first** · **MIT licensed**
 
-## Requirements
+## Choose your setup
 
-| Requirement | Notes |
-|---|---|
-| **macOS** | Required. The server uses AppleScript and the Things URL scheme — neither work in Linux containers. |
-| **Things 3** | Installed, with scripting permissions enabled. |
-| **Python 3.12+** | Modern type hints and f-strings. |
-| **uv** | Recommended package manager. `pip` works too. |
+| ✦ Let an agent help | ↗ Set it up yourself |
+| --- | --- |
+| Give a coding agent the prompt below. It checks your Mac, installs the tool, and configures your chosen app. | Follow four steps with copyable commands and settings. |
+| [Copy the setup prompt ↓](#set-it-up-with-an-agent) | [Open the manual guide →](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/docs/SETUP.md) |
 
-## Installation
+**You'll need:** a Mac with Things 3 opened at least once, and an AI app that supports local MCP servers. Agent-assisted setup needs a coding agent with access to your Mac; a chat window alone may not be able to install software.
 
-```bash
-pip install things3-mcp-gtd
-# or, no install:
-uvx things3-mcp-gtd
+## Set it up with an agent
+
+Copy the whole block into your coding agent. It will ask which AI app you want to connect.
+
+```text
+Help me connect Things 3 to my AI app on this Mac.
+
+Read this setup guide first:
+https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/SETUP-AGENT.md
+
+Use the released things3-mcp-gtd==2.0.0 package.
+If you cannot access the guide, explain what access is missing.
+
+Ask which AI app I want to connect. Check for an existing installation
+and preserve its settings. Install the candidate only if needed.
+Configure local stdio with read-only access and verify a harmless read.
+Don't start a duplicate service, change my tasks, or expose a network port.
+Keep credentials out of chat and source control. Explain permission prompts
+and tell me what I need to click or restart.
 ```
 
-For a local development install, see [docs/DEVELOPERS.md](docs/DEVELOPERS.md).
+[Read what the agent will do →](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/SETUP-AGENT.md)
 
-> Review the [Privacy Notice](PRIVACY.md) and [Terms of Use](TERMS_OF_USE.md) before running the server.
+## Your first conversation
 
-## Configuration
+Once connected, try:
 
-Copy [`.env.example`](.env.example) to `.env` and set at minimum:
+> “Use Things to show me what's on my list today. Don't change anything.”
 
-```bash
-THINGS_AUTH_TOKEN=<paste from Things -> Settings -> General -> Enable Things URLs>
-```
+A returned task list—even an empty one—confirms Things can be read. Your AI app may ask you to approve the tool call.
 
-The server reads from environment variables and the `.env` file via `pydantic-settings`. All other settings (host, port, debug, auth enforcement) have sensible defaults — see `.env.example` for the full list.
+**Can't connect?** [Find the matching symptom →](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/docs/SETUP.md#troubleshooting)
 
-Alternatively, run the interactive helper:
+## Ready to let it make changes?
 
-```bash
-python scripts/configure_token.py
-```
+Reading comes first. Creating and updating tasks are optional next steps:
 
-which writes the token to `~/.things-mcp/config.json`.
+1. Enable **Things URLs** in **Things → Settings → General**.
+2. Remove the read-only setting and reload your connection to enable creating tasks and projects.
+3. To edit existing tasks, add your Things URL token directly to private local settings.
 
-## Quick start
+[Follow the write-access guide →](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/docs/SETUP.md#optional-enable-writes)
 
-Make sure Things 3 is open, then:
+Enabling writes lets your connected agent change Things when it calls a write tool. Review your AI app's tool approval settings before doing so.
 
-```bash
-# If installed via pip or uvx
-things3-mcp-gtd
+## Where your information goes
 
-# If running from source
-uv run server
-```
+The server runs on your Mac, has no telemetry, and writes no log file. Information returned by tools goes to your connected AI app; a remote AI provider can receive it. Read-only access still shares task titles and destinations. Notes, tags, and checklist details are available when requested.
 
-The server binds to `localhost:8009` by default with a single MCP endpoint at `/mcp` over streamable HTTP.
+Reads use Things' private database format in read-only mode. Routine writes use the official Things URL scheme. Unofficial; not affiliated with Cultured Code.
 
-## Connecting an MCP client
+[Privacy](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/PRIVACY.md) · [Terms](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/TERMS_OF_USE.md)
 
-### Claude Desktop (stdio)
+<details>
+<summary><strong>Already using Things MCP 1.x?</strong></summary>
 
-`~/Library/Application Support/Claude/claude_desktop_config.json`:
+Review the [upgrade notes](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/docs/REFERENCE.md#upgrading-from-1x). Existing managed HTTP services need a migration review before replacing their environment. If you used the legacy OAuth endpoints, review the token rotation guidance.
 
-**If installed via pip:**
+</details>
 
-```json
-{
-  "mcpServers": {
-    "things3-gtd": {
-      "command": "things3-mcp-gtd"
-    }
-  }
-}
-```
+<details>
+<summary><strong>Settings, tools, and remote access</strong></summary>
 
-**If running from source:**
+- [Settings and full tool reference](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/docs/REFERENCE.md)
+- [Optional remote OAuth setup](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/docs/OAUTH.md)
+- [Development](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/docs/DEVELOPERS.md) and [live testing](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/docs/TESTING.md)
+- [Changelog](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/CHANGELOG.md) · [License](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/LICENSE)
 
-```json
-{
-  "mcpServers": {
-    "things3-gtd": {
-      "command": "uv",
-      "args": ["run", "server"]
-    }
-  }
-}
-```
-
-### Claude Desktop / Claude Mobile / ChatGPT (remote HTTPS)
-
-Front the server with an HTTPS tunnel (ngrok, Cloudflare Tunnel, etc.) and point your client at `https://<your-tunnel>/mcp`. Full walkthrough: [docs/agent-access.md](docs/agent-access.md).
-
-### n8n / OpenClaw / Cursor
-
-See the dedicated guides:
-
-- [n8n](docs/integration-n8n.md)
-- [ChatGPT](docs/integration-chatgpt.md)
-- [OpenClaw (Clawdbot)](docs/integration-clawdbot.md)
-- [Publishing / approval notes](docs/integration-approval.md)
-
-Compatibility deep-dives: [n8n + FastMCP](docs/n8n-fastmcp-compatibility.md), [ChatGPT + FastMCP](docs/chatgpt-fastmcp-compatibility.md).
-
-## Tools
-
-19 GTD-native tools organized by stage:
-
-### Capture
-
-| Tool | Purpose |
-|------|---------|
-| `capture-task` | Quick-capture to Inbox without organizing. |
-
-### Clarify
-
-| Tool | Purpose |
-|------|---------|
-| `process-inbox` | Process the oldest inbox item with GTD decision guidance. |
-| `convert-to-project` | Transform a task into a multi-step project. |
-
-### Organize
-
-| Tool | Purpose |
-|------|---------|
-| `schedule-task` | Create an organized task with context, dates, project, and tags. |
-| `delegate-task` | Mark as Waiting For with a person and follow-up. |
-| `defer-task` | Move to Someday/Maybe or schedule for a future date. |
-| `plan-project` | Create a project with initial tasks atomically. |
-| `modify-task` | Update an existing task or project. |
-
-### Reflect
-
-| Tool | Purpose |
-|------|---------|
-| `daily-review` | Today's tasks, overdue items, and inbox status. |
-| `weekly-review` | Stalled projects, waiting-for items, someday review. |
-
-### Engage
-
-| Tool | Purpose |
-|------|---------|
-| `get-tasks` | Context-first task retrieval (replaces every per-list view tool). |
-| `focus-mode` | Single most important task for the current context. |
-| `complete-task` | Mark done by ID or fuzzy title match. |
-
-### Utility
-
-| Tool | Purpose |
-|------|---------|
-| `search-tasks` | Full-text and filtered search. |
-| `get-projects` | List all projects. |
-| `get-areas` | List all areas of responsibility. |
-| `get-tags` | List all tags. |
-| `show-in-app` | Open a task or project in Things 3. |
-| `get-cache-stats` | Cache performance statistics (debugging). |
-
-### GTD context tags
-
-For best results, use consistent GTD tags in Things 3:
-
-```
-Contexts:  @computer, @phone, @office, @home, @errands, @anywhere
-Energy:    high-energy, low-energy
-Time:      5min, 15min, 30min, 1hr+
-Status:    waiting-for
-People:    @person-name (for agenda items)
-```
-
-## Optional: 24/7 remote access
-
-If you want the server reachable from Claude Mobile, ChatGPT, or any agent off your Mac, run it as a macOS LaunchAgent fronted by an HTTPS tunnel. End-to-end walkthrough: [docs/agent-access.md](docs/agent-access.md). Recovery procedures for the most common operational issue (a hung Apple Event subsystem): [docs/runbook-recovery.md](docs/runbook-recovery.md).
-
-## Development
-
-For setup, architecture, testing, and contributing guidelines, see [docs/DEVELOPERS.md](docs/DEVELOPERS.md).
-
-```bash
-# CI-safe tests (no Things 3 required)
-uv run python -m pytest tests
-
-# Lint and format
-uv run ruff check .
-uv run ruff format .
-```
-
-This project uses [OpenSpec](openspec/project.md) for spec-driven development of significant changes.
-
-## Future direction
-
-This is an evolving experiment in GTD-native AI tooling. Potential directions:
-
-- MCP **Resources** for ambient GTD state (inbox count, stalled projects)
-- Smarter context detection based on time, location, and calendar
-- Proactive GTD coaching during weekly reviews
-- Multi-app GTD — extending the pattern beyond Things 3
-
-Contributions and ideas welcome.
-
-## Credits
-
-- **[Jonathan Lowin](https://github.com/jlowin)** — [FastMCP](https://gofastmcp.com)
-- **[things.py](https://github.com/thingsapi/things.py)** — Things 3 Python library
-- **[David Allen](https://gettingthingsdone.com/)** — GTD methodology
-- **[Cultured Code](https://culturedcode.com)** — Things 3
-
-## License
-
-MIT — see [LICENSE](LICENSE).
-
-## Links
-
-- [GitHub Issues](https://github.com/Chevalicious/things3-mcp-gtd/issues)
-- [Changelog](CHANGELOG.md)
-- [Things URL Scheme reference](https://culturedcode.com/things/support/articles/2803573/)
-- [GTD methodology](https://gettingthingsdone.com/)
+</details>
