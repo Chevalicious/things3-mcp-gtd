@@ -1,4 +1,4 @@
-![Things 3 + your AI.](docs/images/intro.svg)
+![Things 3 + your AI.](https://raw.githubusercontent.com/Chevalicious/things3-mcp-gtd/v2.0.0/docs/images/intro.svg)
 
 # A little help with everything on your list.
 
@@ -14,14 +14,12 @@ Find the task you forgot. Turn a rough idea into a project. Make room for what m
 
 **macOS** · **Things 3** · **Read-only setup first** · **MIT licensed**
 
-> **2.0 private preview.** Setup installs candidate `6370089`, rather than the older public package. Access to the private repository is required.
-
 ## Choose your setup
 
 | ✦ Let an agent help | ↗ Set it up yourself |
 | --- | --- |
 | Give a coding agent the prompt below. It checks your Mac, installs the tool, and configures your chosen app. | Follow four steps with copyable commands and settings. |
-| [Copy the setup prompt ↓](#set-it-up-with-an-agent) | [Open the manual guide →](docs/SETUP.md) |
+| [Copy the setup prompt ↓](#set-it-up-with-an-agent) | [Open the manual guide →](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/docs/SETUP.md) |
 
 **You'll need:** a Mac with Things 3 opened at least once, and an AI app that supports local MCP servers. Agent-assisted setup needs a coding agent with access to your Mac; a chat window alone may not be able to install software.
 
@@ -33,12 +31,10 @@ Copy the whole block into your coding agent. It will ask which AI app you want t
 Help me connect Things 3 to my AI app on this Mac.
 
 Read this setup guide first:
-https://github.com/Chevalicious/mcp-things/blob/preview/2.0/SETUP-AGENT.md
+https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/SETUP-AGENT.md
 
-This is the private 2.0 preview. Use candidate revision:
-637008919cebb3b74954a502d1071b2c2864197a
-from https://github.com/Chevalicious/mcp-things.git
-If you cannot access the guide or repository, explain what access is missing.
+Use the released things3-mcp-gtd==2.0.0 package.
+If you cannot access the guide, explain what access is missing.
 
 Ask which AI app I want to connect. Check for an existing installation
 and preserve its settings. Install the candidate only if needed.
@@ -48,7 +44,7 @@ Keep credentials out of chat and source control. Explain permission prompts
 and tell me what I need to click or restart.
 ```
 
-[Read what the agent will do →](SETUP-AGENT.md)
+[Read what the agent will do →](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/SETUP-AGENT.md)
 
 ## Your first conversation
 
@@ -58,7 +54,7 @@ Once connected, try:
 
 A returned task list—even an empty one—confirms Things can be read. Your AI app may ask you to approve the tool call.
 
-**Can't connect?** [Find the matching symptom →](docs/SETUP.md#troubleshooting)
+**Can't connect?** [Find the matching symptom →](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/docs/SETUP.md#troubleshooting)
 
 ## Ready to let it make changes?
 
@@ -68,7 +64,7 @@ Reading comes first. Creating and updating tasks are optional next steps:
 2. Remove the read-only setting and reload your connection to enable creating tasks and projects.
 3. To edit existing tasks, add your Things URL token directly to private local settings.
 
-[Follow the write-access guide →](docs/SETUP.md#optional-enable-writes)
+[Follow the write-access guide →](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/docs/SETUP.md#optional-enable-writes)
 
 Enabling writes lets your connected agent change Things when it calls a write tool. Review your AI app's tool approval settings before doing so.
 
@@ -78,21 +74,21 @@ The server runs on your Mac, has no telemetry, and writes no log file. Informati
 
 Reads use Things' private database format in read-only mode. Routine writes use the official Things URL scheme. Unofficial; not affiliated with Cultured Code.
 
-[Privacy](PRIVACY.md) · [Terms](TERMS_OF_USE.md)
+[Privacy](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/PRIVACY.md) · [Terms](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/TERMS_OF_USE.md)
 
 <details>
 <summary><strong>Already using Things MCP 1.x?</strong></summary>
 
-Review the [upgrade notes](docs/REFERENCE.md#upgrading-from-1x). Existing managed HTTP services need a migration review before replacing their environment. If you used the legacy OAuth endpoints, review the token rotation guidance.
+Review the [upgrade notes](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/docs/REFERENCE.md#upgrading-from-1x). Existing managed HTTP services need a migration review before replacing their environment. If you used the legacy OAuth endpoints, review the token rotation guidance.
 
 </details>
 
 <details>
 <summary><strong>Settings, tools, and remote access</strong></summary>
 
-- [Settings and full tool reference](docs/REFERENCE.md)
-- [Optional remote OAuth setup](docs/OAUTH.md)
-- [Development](docs/DEVELOPERS.md) and [live testing](docs/TESTING.md)
-- [Changelog](CHANGELOG.md) · [License](LICENSE)
+- [Settings and full tool reference](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/docs/REFERENCE.md)
+- [Optional remote OAuth setup](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/docs/OAUTH.md)
+- [Development](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/docs/DEVELOPERS.md) and [live testing](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/docs/TESTING.md)
+- [Changelog](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/CHANGELOG.md) · [License](https://github.com/Chevalicious/things3-mcp-gtd/blob/v2.0.0/LICENSE)
 
 </details>

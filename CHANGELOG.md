@@ -5,7 +5,7 @@ All notable changes to **things3-mcp-gtd** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0] - Unreleased
+## [2.0.0] - 2026-11-13
 
 ### Added
 
@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Task lists and search return compact rows by default; pass `include_details` for notes, tags, checklists, and a local Things link.
 - Creating missing tags is opt-in (`THINGS_MCP_ALLOW_TAG_CREATION`). Startup, reads, ordinary writes, and use of existing tags no longer use AppleScript or request Automation permission.
 - Tool descriptions and server instructions no longer assume a workflow methodology. Tool names and arguments are unchanged.
-- Setup documentation is client-agnostic and lives in the README.
+- Setup starts with a client-agnostic README, agent-assisted installation prompt, and a short manual guide.
 - The default test suite no longer needs the Things app, and live-test cleanup only targets recorded IDs.
 
 ### Removed

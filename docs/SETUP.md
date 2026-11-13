@@ -10,15 +10,15 @@
 
 Already running Things MCP? Use the agent guide to review your setup first. Preserve its environment and avoid starting a duplicate service.
 
-## 2. Install the private candidate
+## 2. Install Things 3 MCP
 
-Open **Terminal**. With authenticated access to the private repository, run:
+Open **Terminal**. Run:
 
 ```sh
-uv tool install --python 3.13 'git+https://github.com/Chevalicious/mcp-things.git@637008919cebb3b74954a502d1071b2c2864197a'
+uv tool install --python 3.13 'things3-mcp-gtd==2.0.0'
 ```
 
-This installs the 2.0 preview. If an installation already exists, review it before replacing anything. If GitHub denies access, use your usual Git credential manager; don't put a token into the URL.
+This installs version 2.0.0. If an installation already exists, review it before replacing anything.
 
 Find the installed command:
 
@@ -82,7 +82,7 @@ Creating missing tags, creating areas, and moving tasks to Trash have separate o
 | What you see | What to check |
 | --- | --- |
 | `uv: command not found` | Follow the uv installation link, then reopen Terminal. |
-| Repository not found | Confirm private repository access through your Git credential manager. |
+| Package download fails | Check your internet connection and that version 2.0.0 is available on PyPI. |
 | Tool already installed | Review its version, clients, and services before replacing it. |
 | App can't find the command | Use the full executable path. |
 | Connection works but tasks fail | Check the launching app's macOS access to the Things container. |
